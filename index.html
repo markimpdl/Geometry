@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Geometry Rush</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#0d0d1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Geo Rush">
+<link rel="icon" type="image/png" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #0d0d1a;
+    overflow: hidden;
+    font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+  #wrap {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    aspect-ratio: 9 / 5;
+    box-shadow: 0 0 60px rgba(90, 130, 255, 0.35);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #fff;
+    background: rgba(10, 10, 30, 0.72);
+    backdrop-filter: blur(3px);
+    transition: opacity .25s ease;
+    padding: 20px;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .overlay h1 {
+    font-size: clamp(2rem, 7vw, 4rem);
+    letter-spacing: 3px;
+    text-shadow: 0 0 20px #5a82ff, 0 0 40px #ff4d9d;
+    margin-bottom: 6px;
+  }
+  .overlay p { font-size: clamp(.9rem, 2.5vw, 1.15rem); opacity: .85; margin: 4px 0; }
+  .big-score { font-size: clamp(1.4rem, 5vw, 2.4rem); font-weight: 800; color: #ffd84d; margin: 10px 0; }
+  .btn {
+    margin-top: 18px;
+    background: linear-gradient(135deg, #5a82ff, #ff4d9d);
+    color: #fff;
+    border: none;
+    padding: 14px 36px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(90,130,255,.5);
+    transition: transform .12s ease;
+  }
+  .btn:hover { transform: scale(1.06); }
+  .hint { margin-top: 14px; font-size: .85rem; opacity: .6; }
+
+  .levels { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+  .level-card {
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.25);
+    border-radius: 16px;
+    padding: 18px 22px;
+    cursor: pointer;
+    min-width: 150px;
+    transition: transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .level-card:hover { transform: translateY(-4px) scale(1.03); background: rgba(255,255,255,0.14); }
+  .level-card .lv-icon { font-size: 2.4rem; }
+  .level-card .lv-name { font-weight: 800; letter-spacing: 1px; margin: 6px 0 2px; font-size: 1.15rem; }
+  .level-card .lv-best { font-size: .8rem; opacity: .7; }
+  .level-card.electro:hover { border-color: #4de0ff; box-shadow: 0 0 22px rgba(77,224,255,.5); }
+  .level-card.water:hover   { border-color: #4dd0ff; box-shadow: 0 0 22px rgba(77,208,255,.5); }
+  .level-card.demon:hover   { border-color: #ff3d3d; box-shadow: 0 0 22px rgba(255,61,61,.55); }
+  .level-card.locked { opacity: .55; cursor: not-allowed; filter: grayscale(.6); }
+  .level-card.locked:hover { transform: none; background: rgba(255,255,255,0.08); box-shadow: none; }
+  .level-card .lv-req { font-size: .72rem; margin-top: 4px; color: #ffd84d; }
+
+  /* Skin picker */
+  .skins-wrap { margin-top: 22px; }
+  .skins-wrap .lbl { font-size: .8rem; letter-spacing: 2px; opacity: .7; margin-bottom: 8px; }
+  .skins { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .skin {
+    width: 46px; height: 46px; border-radius: 10px;
+    border: 3px solid rgba(255,255,255,0.3);
+    cursor: pointer; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .12s ease, border-color .12s ease;
+  }
+  .skin:hover { transform: scale(1.1); }
+  .skin.selected { border-color: #fff; box-shadow: 0 0 14px rgba(255,255,255,.8); }
+  .skin.locked { cursor: help; }
+  .skin.locked::after {
+    content: "🔒"; position: absolute; font-size: 1.2rem;
+    filter: drop-shadow(0 1px 2px #000);
+  }
+  .skin.locked > span { opacity: 0; }
+  .skin .tip {
+    position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
+    background: #000; color: #fff; font-size: .7rem; padding: 4px 8px;
+    border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none;
+    transition: opacity .12s ease;
+  }
+  .skin:hover .tip { opacity: .95; }
+  .unlock-msg { margin-top: 10px; color: #ffd84d; font-weight: 700; min-height: 1.2em; }
+
+  #hud {
+    position: absolute;
+    top: 14px; left: 16px; right: 16px;
+    display: flex;
+    justify-content: space-between;
+    color: #fff;
+    font-weight: 800;
+    font-size: clamp(1rem, 3vw, 1.5rem);
+    text-shadow: 0 2px 6px rgba(0,0,0,.6);
+    pointer-events: none;
+    z-index: 5;
+  }
+  #hud .label { font-size: .6em; opacity: .7; display: block; font-weight: 600; }
+
+  #progressWrap {
+    position: absolute;
+    top: 62px; left: 50%; transform: translateX(-50%);
+    width: 60%; max-width: 460px; height: 12px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 10px;
+    z-index: 5;
+    pointer-events: none;
+  }
+  #progressBar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #ffd84d, #5adf9e);
+    border-radius: 10px;
+    transition: width .1s linear;
+  }
+  #progressFlag {
+    position: absolute; top: -6px; right: -10px; font-size: 1.1rem;
+  }
+  /* HUD + progress only visible once a level is running */
+  #hud, #progressWrap { transition: opacity .25s ease; }
+  #wrap:not(.in-game) #hud,
+  #wrap:not(.in-game) #progressWrap { opacity: 0; }
+
+  #muteBtn {
+    position: absolute; bottom: 12px; right: 12px;
+    z-index: 6;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #fff; font-size: 1.1rem;
+    width: 40px; height: 40px; border-radius: 50%;
+    cursor: pointer; line-height: 1;
+    transition: transform .12s ease;
+  }
+  #muteBtn:hover { transform: scale(1.1); }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div><span class="label">SCORE</span><span id="score">0</span> / <span id="goal">1000</span></div>
+    <div style="text-align:center"><span class="label">COLLECTED</span>🪙 <span id="coins">0</span>&nbsp;&nbsp;⭐ <span id="starsC">0</span></div>
+    <div style="text-align:right"><span class="label">BEST</span><span id="best">0</span></div>
+  </div>
+  <div id="progressWrap"><div id="progressBar"></div><div id="progressFlag">🏁</div></div>
+  <button id="muteBtn" title="Mute / unmute music">🔊</button>
+
+  <div class="overlay" id="startScreen">
+    <h1>GEOMETRY RUSH</h1>
+    <p>Pick a level. Jump the spikes. Survive!</p>
+    <div class="levels">
+      <div class="level-card electro" data-level="electro">
+        <div class="lv-icon">⚡</div>
+        <div class="lv-name">ELECTRO</div>
+        <div class="lv-best">Best: <span id="best-electro">0</span></div>
+      </div>
+      <div class="level-card water" data-level="water">
+        <div class="lv-icon">🌊</div>
+        <div class="lv-name">WATER ON HILL</div>
+        <div class="lv-best">Best: <span id="best-water">0</span></div>
+      </div>
+      <div class="level-card demon" data-level="demon">
+        <div class="lv-icon">👿</div>
+        <div class="lv-name">DEMON</div>
+        <div class="lv-best">Best: <span id="best-demon">0</span></div>
+        <div class="lv-req" id="demonReq">🔒 Needs 6🪙 &amp; 2⭐</div>
+      </div>
+    </div>
+
+    <div class="skins-wrap">
+      <div class="lbl">CUBE COLOR</div>
+      <div class="skins" id="skinRow"></div>
+    </div>
+
+    <p class="hint">SPACE / CLICK / TAP to jump · double-jump in mid-air · <b>hold</b> to fly in 🚀 ship mode · P to pause</p>
+  </div>
+
+  <div class="overlay hidden" id="deathScreen">
+    <h1 style="color:#ff4d6d;text-shadow:0 0 20px #ff4d6d">GAME OVER</h1>
+    <div class="big-score">Score: <span id="finalScore">0</span></div>
+    <p id="deathMsg">Nice run!</p>
+    <button class="btn" id="retryBtn">↻ RETRY</button>
+    <button class="btn" id="levelsBtn" style="background:rgba(255,255,255,0.15);box-shadow:none;">☰ LEVELS</button>
+    <p class="hint">SPACE / CLICK / TAP to jump again</p>
+  </div>
+
+  <div class="overlay hidden" id="pauseScreen">
+    <h1>PAUSED</h1>
+    <button class="btn" id="resumeBtn">▶ RESUME</button>
+  </div>
+
+  <div class="overlay hidden" id="winScreen">
+    <h1 style="color:#5adf9e;text-shadow:0 0 20px #5adf9e">LEVEL COMPLETE!</h1>
+    <div class="big-score">🏁 You reached the finish!</div>
+    <p id="winStats">🪙 0 coins · ⭐ 0 stars</p>
+    <p class="unlock-msg" id="unlockMsg"></p>
+    <button class="btn" id="nextBtn">↻ PLAY AGAIN</button>
+    <button class="btn" id="winLevelsBtn" style="background:rgba(255,255,255,0.15);box-shadow:none;">☰ LEVELS</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// Logical resolution
+const W = 900, H = 500;
+canvas.width = W; canvas.height = H;
+
+const GROUND_Y = H - 70;
+const GOAL = 1000;   // reach this score to finish the level
+
+// ship mode tuning
+const SHIP_TOP = 24;
+const SHIP_GRAV = 0.5;
+const SHIP_THRUST = 1.15;
+const SHIP_MAXV = 8.5;
+
+// ---- Game state ----
+let state = 'start'; // start | playing | dead | paused | won
+// ---- Levels ----
+// Each level defines its own theme, speed and background flavour.
+const LEVELS = {
+  electro: {
+    name: 'ELECTRO',
+    baseSpeed: 7.5,          // fast & frantic
+    sky: ['#241046', '#3a1670', '#0a0518'],
+    accent: '#4de0ff',        // grid / ground glow
+    spike: '#c86bff', spikeStroke: '#e9c9ff',
+    block: '#4de0ff', blockStroke: '#d6f7ff',
+    player: ['#eaffff', '#4de0ff'], trail: '#c86bff',
+    bg: 'bolts',
+    music: {
+      bpm: 140, wave: 'square', bassWave: 'sawtooth', vol: 0.5,
+      bass: ['E2','','E2','','B2','','E2','','G2','','G2','','D3','','B2',''],
+      lead: ['E4','B4','G4','B4','E5','','B4','','D5','B4','G4','','A4','','B4',''],
+      drums:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0]
+    }
+  },
+  water: {
+    name: 'WATER ON HILL',
+    baseSpeed: 5.5,          // calmer, flowing
+    sky: ['#7ad0ff', '#4a9fe0', '#1e3a6b'],
+    accent: '#2ec4ff',
+    spike: '#1f8fff', spikeStroke: '#bfe9ff',
+    block: '#5adf9e', blockStroke: '#d6fff0',   // grassy rocks on the hill
+    player: ['#ffffff', '#2ec4ff'], trail: '#7ad0ff',
+    bg: 'bubbles',
+    music: {
+      bpm: 100, wave: 'triangle', bassWave: 'triangle', vol: 0.45,
+      bass: ['A2','','E3','','A2','','E3','','F2','','C3','','G2','','D3',''],
+      lead: ['A4','','C5','E5','','C5','B4','','A4','','E4','','F4','A4','',''],
+      drums:[1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0]
+    }
+  },
+  demon: {
+    name: 'DEMON',
+    baseSpeed: 9.5,          // brutally fast
+    sky: ['#3a0000', '#1a0008', '#000000'],
+    accent: '#ff3d3d',
+    spike: '#ff2d55', spikeStroke: '#ffd0d8',
+    block: '#ff7a1a', blockStroke: '#ffe0b0',
+    player: ['#ffd08a', '#ff3d3d'], trail: '#ff7a1a',
+    bg: 'bolts',
+    locked: true,            // unlocked by collecting coins & stars
+    reqCoins: 6, reqStars: 2,
+    // fast, dark, driving — the "cool" demon track
+    music: {
+      bpm: 178, wave: 'sawtooth', bassWave: 'sawtooth', vol: 0.5,
+      bass: ['D2','D2','','D2','A#1','','D2','','D2','D2','','C2','A1','','A#1',''],
+      lead: ['D5','','F5','','A5','G5','F5','','E5','','D5','','A4','C5','D5','A5'],
+      drums:[1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,1]
+    }
+  }
+};
+
+// ---- Cube colors (skins) — some unlocked by playing ----
+const SKINS = [
+  { id:'classic', name:'Classic', colors:['#eaffff','#4de0ff'], glow:'#4de0ff', how:'Starter' },
+  { id:'rose',    name:'Rose',    colors:['#ffd1e8','#ff4d9d'], glow:'#ff4d9d', how:'Starter' },
+  { id:'volt',    name:'Volt',    colors:['#eaffef','#5adf9e'], glow:'#5adf9e', how:'Finish Electro' },
+  { id:'aqua',    name:'Aqua',    colors:['#dff6ff','#1f8fff'], glow:'#1f8fff', how:'Finish Water on Hill' },
+  { id:'gold',    name:'Gold',    colors:['#fff3c4','#ffb300'], glow:'#ffd84d', how:'Collect 5 stars total' },
+  { id:'inferno', name:'Inferno', colors:['#ffe08a','#ff3d3d'], glow:'#ff5a3d', how:'Finish Demon' }
+];
+
+// Is a skin unlocked given current progress?
+function skinUnlocked(id) {
+  switch (id) {
+    case 'classic': case 'rose': return true;
+    case 'volt':    return !!progress.completed.electro;
+    case 'aqua':    return !!progress.completed.water;
+    case 'gold':    return progress.totalStars >= 5;
+    case 'inferno': return !!progress.completed.demon;
+    default: return false;
+  }
+}
+
+// ---- Persistent progression (single JSON blob; file:// safe) ----
+const DEFAULT_PROGRESS = {
+  best: { electro:0, water:0, demon:0 },
+  completed: { electro:false, water:false, demon:false },
+  totalCoins: 0, totalStars: 0,
+  skin: 'classic'
+};
+let progress = structuredCloneSafe(DEFAULT_PROGRESS);
+
+function structuredCloneSafe(o) { return JSON.parse(JSON.stringify(o)); }
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem('geoRushSave');
+    if (raw) {
+      const p = JSON.parse(raw);
+      // merge onto defaults so new fields never break an old save
+      progress = Object.assign(structuredCloneSafe(DEFAULT_PROGRESS), p);
+      progress.best = Object.assign({electro:0,water:0,demon:0}, p.best || {});
+      progress.completed = Object.assign({electro:false,water:false,demon:false}, p.completed || {});
+    }
+  } catch (e) { /* keep defaults */ }
+}
+function saveProgress() {
+  try { localStorage.setItem('geoRushSave', JSON.stringify(progress)); } catch (e) { /* ignore */ }
+}
+loadProgress();
+
+// Demon unlock check
+function demonUnlocked() {
+  return progress.totalCoins >= LEVELS.demon.reqCoins &&
+         progress.totalStars >= LEVELS.demon.reqStars;
+}
+
+let currentLevel = 'electro';   // set when a level is chosen
+let theme = LEVELS.electro;     // active theme, drives all drawing
+let currentSkin = SKINS.find(s => s.id === progress.skin) || SKINS[0];
+let score = 0;
+let best = 0;
+let speed = 6;
+let baseSpeed = 6;
+let frame = 0;
+let coins = 0;            // coins collected this run
+let starsCollected = 0;   // stars collected this run
+let collectibles = [];    // coins & stars floating in the world
+let collectTimer = 0;
+
+// Render the whole start menu: bests, demon lock, skin swatches.
+function refreshMenu() {
+  // per-level bests
+  for (const key in LEVELS) {
+    const el = document.getElementById('best-' + key);
+    if (el) el.textContent = progress.best[key] || 0;
+  }
+  // demon lock state
+  const demonCard = document.querySelector('.level-card.demon');
+  const req = document.getElementById('demonReq');
+  if (demonCard) {
+    if (demonUnlocked()) {
+      demonCard.classList.remove('locked');
+      req.textContent = '🔥 Unlocked!';
+      req.style.color = '#5adf9e';
+    } else {
+      demonCard.classList.add('locked');
+      req.textContent = `🔒 ${progress.totalCoins}/6🪙  ${progress.totalStars}/2⭐`;
+      req.style.color = '#ffd84d';
+    }
+  }
+  // skin swatches
+  const row = document.getElementById('skinRow');
+  if (row) {
+    row.innerHTML = '';
+    SKINS.forEach(sk => {
+      const unlocked = skinUnlocked(sk.id);
+      const div = document.createElement('div');
+      div.className = 'skin' + (unlocked ? '' : ' locked') + (currentSkin.id === sk.id ? ' selected' : '');
+      div.style.background = `linear-gradient(135deg, ${sk.colors[0]}, ${sk.colors[1]})`;
+      div.innerHTML = `<span></span><div class="tip">${unlocked ? sk.name : '🔒 ' + sk.how}</div>`;
+      if (unlocked) div.addEventListener('click', () => selectSkin(sk.id));
+      row.appendChild(div);
+    });
+  }
+}
+
+function selectSkin(id) {
+  if (!skinUnlocked(id)) return;
+  currentSkin = SKINS.find(s => s.id === id) || SKINS[0];
+  progress.skin = currentSkin.id;
+  saveProgress();
+  refreshMenu();
+}
+refreshMenu();
+
+// ---- Player ----
+const player = {
+  x: 140, y: GROUND_Y - 44,
+  size: 44,
+  vy: 0,
+  onGround: true,
+  jumps: 0,
+  rot: 0,
+  mode: 'cube',   // 'cube' | 'ship'
+  trail: []
+};
+
+const GRAVITY = 0.9;
+const JUMP_V = -15;
+const MAX_JUMPS = 2;
+
+// ---- World objects ----
+let obstacles = [];
+let particles = [];
+let stars = [];
+let spawnTimer = 0;
+let portalTimer = 0;
+let sectionMode = 'cube';   // which mode we're currently spawning for
+let holding = false;         // is jump/thrust being held?
+
+// ============ AUDIO / MUSIC ENGINE (procedural chiptune) ============
+let actx = null, masterGain = null, musicTimer = null, musicStep = 0;
+let muted = false;
+try { muted = localStorage.getItem('geoRushMuted') === '1'; } catch (e) {}
+
+const A4 = 440;
+const SEMI = {C:-9,'C#':-8,D:-7,'D#':-6,E:-5,F:-4,'F#':-3,G:-2,'G#':-1,A:0,'A#':1,B:2};
+function nf(note) {                       // note name -> frequency
+  if (!note) return 0;
+  const m = /^([A-G]#?)(\d)$/.exec(note);
+  if (!m) return 0;
+  return A4 * Math.pow(2, (SEMI[m[1]] + (parseInt(m[2]) - 4) * 12) / 12);
+}
+function initAudio() {
+  if (!actx) {
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = actx.createGain();
+      masterGain.gain.value = muted ? 0 : 0.5;
+      masterGain.connect(actx.destination);
+    } catch (e) { actx = null; }
+  }
+  if (actx && actx.state === 'suspended') actx.resume();
+}
+function tone(freq, t, dur, type, vol) {
+  if (!actx || !freq) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(masterGain);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function kick(t) {
+  if (!actx) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(160, t);
+  o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+  g.gain.setValueAtTime(0.4, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+  o.connect(g).connect(masterGain);
+  o.start(t); o.stop(t + 0.18);
+}
+function startMusic() {
+  initAudio();
+  if (!actx) return;
+  stopMusic();
+  musicStep = 0;
+  const m = LEVELS[currentLevel].music;
+  const stepDur = 60 / m.bpm / 4;        // 16th-note length (seconds)
+  musicTimer = setInterval(() => {
+    if (state !== 'playing') return;      // silence while paused/dead
+    const t = actx.currentTime + 0.02;
+    const i = musicStep % 16;
+    if (m.bass[i]) tone(nf(m.bass[i]), t, stepDur * 3.6, m.bassWave, m.vol * 0.4);
+    if (m.lead[i]) tone(nf(m.lead[i]), t, stepDur * 1.9, m.wave, m.vol * 0.28);
+    if (m.drums[i]) kick(t);
+    musicStep++;
+  }, stepDur * 1000);
+}
+function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } }
+function toggleMute() {
+  muted = !muted;
+  if (masterGain) masterGain.gain.value = muted ? 0 : 0.5;
+  try { localStorage.setItem('geoRushMuted', muted ? '1' : '0'); } catch (e) {}
+  const b = document.getElementById('muteBtn');
+  if (b) b.textContent = muted ? '🔇' : '🔊';
+}
+
+// background stars
+for (let i = 0; i < 60; i++) {
+  stars.push({
+    x: Math.random() * W,
+    y: Math.random() * (GROUND_Y - 20),
+    r: Math.random() * 1.8 + 0.3,
+    s: Math.random() * 0.5 + 0.15
+  });
+}
+
+function reset() {
+  score = 0;
+  speed = baseSpeed;
+  frame = 0;
+  obstacles = [];
+  particles = [];
+  collectibles = [];
+  coins = 0;
+  starsCollected = 0;
+  spawnTimer = 0;
+  collectTimer = 40;
+  portalTimer = 480;       // first portal well into the run
+  sectionMode = 'cube';
+  player.y = GROUND_Y - player.size;
+  player.vy = 0;
+  player.onGround = true;
+  player.jumps = 0;
+  player.rot = 0;
+  player.mode = 'cube';
+  player.trail = [];
+  document.getElementById('goal').textContent = GOAL;
+  document.getElementById('coins').textContent = 0;
+  document.getElementById('starsC').textContent = 0;
+  document.getElementById('progressBar').style.width = '0%';
+}
+
+// ---- Input ----
+function jump() {
+  if (state !== 'playing') return;
+  if (player.jumps < MAX_JUMPS) {
+    player.vy = JUMP_V;
+    player.onGround = false;
+    player.jumps++;
+    // jump particles
+    for (let i = 0; i < 8; i++) {
+      particles.push({
+        x: player.x + player.size / 2,
+        y: player.y + player.size,
+        vx: (Math.random() - 0.5) * 4,
+        vy: Math.random() * 3 + 1,
+        life: 20, color: theme.trail, size: Math.random() * 3 + 1
+      });
+    }
+  }
+}
+
+function handleAction() {
+  // On the start screen the player must pick a level first (no auto-start).
+  if (state === 'playing') { if (player.mode === 'cube') jump(); }   // ship uses hold, not tap
+  else if (state === 'dead' || state === 'won') startGame(currentLevel);   // replay same level
+}
+
+// press = start holding (ship thrust) + trigger the discrete action (cube jump / restart)
+function pressDown() { holding = true; handleAction(); }
+function pressUp() { holding = false; }
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    holding = true;
+    if (!e.repeat) handleAction();
+  }
+  if (e.key === 'p' || e.key === 'P') togglePause();
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') holding = false;
+});
+canvas.addEventListener('mousedown', pressDown);
+window.addEventListener('mouseup', pressUp);
+window.addEventListener('touchstart', e => {
+  if (e.target.closest('.btn') || e.target.closest('.level-card') || e.target.closest('.skin')) return;
+  e.preventDefault(); pressDown();
+}, { passive: false });
+window.addEventListener('touchend', pressUp);
+
+// level cards on the start screen
+document.querySelectorAll('.level-card').forEach(card => {
+  card.addEventListener('click', () => startGame(card.dataset.level));
+});
+document.getElementById('retryBtn').onclick = () => startGame(currentLevel);
+document.getElementById('levelsBtn').onclick = showLevelSelect;
+document.getElementById('resumeBtn').onclick = togglePause;
+document.getElementById('nextBtn').onclick = () => startGame(currentLevel);
+document.getElementById('winLevelsBtn').onclick = showLevelSelect;
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.textContent = muted ? '🔇' : '🔊';
+muteBtn.onclick = (e) => { e.stopPropagation(); initAudio(); toggleMute(); };
+
+function hideAllScreens() {
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('deathScreen').classList.add('hidden');
+  document.getElementById('pauseScreen').classList.add('hidden');
+  document.getElementById('winScreen').classList.add('hidden');
+}
+
+function startGame(levelKey) {
+  const key = LEVELS[levelKey] ? levelKey : 'electro';
+  // Demon is gated behind coins & stars.
+  if (key === 'demon' && !demonUnlocked()) {
+    refreshMenu();   // flash the updated requirement
+    return;
+  }
+  currentLevel = key;
+  theme = LEVELS[currentLevel];
+  baseSpeed = theme.baseSpeed;
+  best = progress.best[currentLevel] || 0;
+  document.getElementById('best').textContent = best;
+  reset();
+  state = 'playing';
+  document.getElementById('wrap').classList.add('in-game');
+  hideAllScreens();
+  startMusic();
+}
+
+function showLevelSelect() {
+  state = 'start';
+  stopMusic();
+  refreshMenu();
+  document.getElementById('wrap').classList.remove('in-game');
+  hideAllScreens();
+  document.getElementById('startScreen').classList.remove('hidden');
+}
+
+function togglePause() {
+  if (state === 'playing') {
+    state = 'paused';
+    stopMusic();
+    document.getElementById('pauseScreen').classList.remove('hidden');
+  } else if (state === 'paused') {
+    state = 'playing';
+    startMusic();
+    document.getElementById('pauseScreen').classList.add('hidden');
+  }
+}
+
+function die() {
+  state = 'dead';
+  stopMusic();
+  // explosion
+  for (let i = 0; i < 40; i++) {
+    particles.push({
+      x: player.x + player.size / 2,
+      y: player.y + player.size / 2,
+      vx: (Math.random() - 0.5) * 12,
+      vy: (Math.random() - 0.5) * 12,
+      life: 45,
+      color: ['#ff4d6d', '#ffd84d', '#5a82ff'][Math.floor(Math.random()*3)],
+      size: Math.random() * 5 + 2
+    });
+  }
+  if (score > best) {
+    best = score;
+    progress.best[currentLevel] = best;
+    saveProgress();
+    document.getElementById('best').textContent = best;
+  }
+  const msgs = ['So close!', 'Try again!', 'Getting better!', 'Almost had it!', 'Keep going!'];
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('deathMsg').textContent =
+    score >= best && score > 0 ? '🏆 New best score!' : msgs[Math.floor(Math.random()*msgs.length)];
+  document.getElementById('deathScreen').classList.remove('hidden');
+}
+
+function win() {
+  state = 'won';
+  stopMusic();
+  // celebratory confetti burst
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: player.x + player.size / 2,
+      y: player.y,
+      vx: (Math.random() - 0.5) * 10,
+      vy: -Math.random() * 10 - 2,
+      life: 60,
+      color: ['#ffd84d', '#5adf9e', theme.accent, '#ff7ad0'][Math.floor(Math.random()*4)],
+      size: Math.random() * 5 + 2
+    });
+  }
+  // snapshot what was unlocked BEFORE banking this run's rewards
+  const wasDemon = demonUnlocked();
+  const wasUnlocked = {};
+  SKINS.forEach(s => wasUnlocked[s.id] = skinUnlocked(s.id));
+
+  // bank rewards & completion
+  progress.totalCoins += coins;
+  progress.totalStars += starsCollected;
+  progress.completed[currentLevel] = true;
+  if (score > best) { best = score; document.getElementById('best').textContent = best; }
+  progress.best[currentLevel] = Math.max(progress.best[currentLevel] || 0, score);
+  saveProgress();
+
+  // figure out what just unlocked
+  const unlocks = [];
+  SKINS.forEach(s => { if (!wasUnlocked[s.id] && skinUnlocked(s.id)) unlocks.push('🎨 ' + s.name + ' cube'); });
+  if (!wasDemon && demonUnlocked()) unlocks.push('👿 DEMON level');
+
+  document.getElementById('winStats').textContent =
+    `🪙 ${coins} coins · ⭐ ${starsCollected} stars`;
+  document.getElementById('unlockMsg').textContent =
+    unlocks.length ? 'Unlocked: ' + unlocks.join('  ·  ') : '';
+
+  refreshMenu();  // keep the start screen in sync for next time
+  document.getElementById('winScreen').classList.remove('hidden');
+}
+
+// ---- Spawning ----
+function spawnObstacle() {
+  const type = Math.random();
+  if (type < 0.62) {
+    // spike(s) - 1 to 3 in a row
+    const count = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+      obstacles.push({ kind: 'spike', x: W + i * 34, w: 34, h: 40 });
+    }
+  } else if (type < 0.85) {
+    // block to land on / jump over
+    const h = 40 + Math.floor(Math.random() * 60);
+    obstacles.push({ kind: 'block', x: W, w: 50, h: h });
+  } else {
+    // floating block + spike under (must double jump)
+    obstacles.push({ kind: 'spike', x: W, w: 34, h: 40 });
+    obstacles.push({ kind: 'spike', x: W + 34, w: 34, h: 40 });
+  }
+}
+
+// Ship section: top & bottom bars with a gap to fly through.
+function spawnShipGate() {
+  const top = SHIP_TOP, floor = GROUND_Y;
+  const usable = floor - top;
+  const gapH = 150;
+  const gapTop = top + 25 + Math.random() * (usable - gapH - 50);
+  const w = 46;
+  obstacles.push({ kind: 'bar', x: W, w, y: top, h: gapTop - top });                 // hangs from ceiling
+  obstacles.push({ kind: 'bar', x: W, w, y: gapTop + gapH, h: floor - (gapTop + gapH) }); // rises from floor
+}
+
+// Spawn coins (common) or a star (rare) at reachable heights.
+function spawnCollectible() {
+  const isStar = Math.random() < 0.18;
+  if (isStar) {
+    // a single high-value star near jump apex
+    collectibles.push({
+      kind: 'star', x: W + 20,
+      y: GROUND_Y - (110 + Math.random() * 40),
+      r: 15, collected: false, spin: 0
+    });
+  } else {
+    // an arc of 3-5 coins following a jump trajectory
+    const n = 3 + Math.floor(Math.random() * 3);
+    const gap = 46;
+    const peak = 70 + Math.random() * 60;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);                 // 0..1 across the arc
+      const arc = Math.sin(t * Math.PI);     // 0 at ends, 1 in middle
+      collectibles.push({
+        kind: 'coin', x: W + 20 + i * gap,
+        y: GROUND_Y - 40 - arc * peak,
+        r: 11, collected: false, spin: 0
+      });
+    }
+  }
+}
+
+// ---- Collision ----
+function collide(px, py, pw, ph, ox, oy, ow, oh) {
+  return px < ox + ow && px + pw > ox && py < oy + oh && py + ph > oy;
+}
+
+// ---- Update ----
+function update() {
+  if (state !== 'playing') return;
+  frame++;
+  score = Math.floor(frame / 6);
+  document.getElementById('score').textContent = score;
+  document.getElementById('progressBar').style.width =
+    Math.min(100, (score / GOAL) * 100) + '%';
+
+  // reached the finish line -> level complete
+  if (score >= GOAL) { win(); return; }
+
+  // gradually speed up (capped so the finish stays fair)
+  speed = baseSpeed + Math.min(frame, 900) / 900;
+
+  // stop spawning hazards in the final stretch so the finish is clean
+  const spawning = score < GOAL - 8;
+
+  // player physics
+  if (player.mode === 'ship') {
+    // fly: gravity pulls down, holding thrusts up
+    player.vy += SHIP_GRAV;
+    if (holding) player.vy -= SHIP_THRUST;
+    player.vy = Math.max(-SHIP_MAXV, Math.min(SHIP_MAXV, player.vy));
+    player.y += player.vy;
+    player.rot = Math.max(-0.5, Math.min(0.5, player.vy * 0.05));
+    player.onGround = false;
+    // clamp to ceiling & floor (no death, you just bump)
+    if (player.y < SHIP_TOP) { player.y = SHIP_TOP; player.vy = 0; }
+    if (player.y + player.size >= GROUND_Y) { player.y = GROUND_Y - player.size; player.vy = 0; }
+    // thrust flame
+    if (holding && frame % 2 === 0) {
+      particles.push({
+        x: player.x, y: player.y + player.size / 2,
+        vx: -Math.random() * 4 - 2, vy: (Math.random() - 0.5) * 2,
+        life: 16, color: theme.accent, size: Math.random() * 3 + 1
+      });
+    }
+  } else {
+    // cube: gravity + jumps
+    player.vy += GRAVITY;
+    player.y += player.vy;
+    player.rot += (player.onGround ? 0 : 0.18);
+    if (player.y + player.size >= GROUND_Y) {
+      player.y = GROUND_Y - player.size;
+      player.vy = 0;
+      if (!player.onGround) player.rot = Math.round(player.rot / (Math.PI/2)) * (Math.PI/2);
+      player.onGround = true;
+      player.jumps = 0;
+    }
+  }
+
+  // trail
+  player.trail.push({ x: player.x, y: player.y, rot: player.rot });
+  if (player.trail.length > 6) player.trail.shift();
+
+  // spawn a mode portal every so often (toggles cube <-> ship section)
+  portalTimer--;
+  if (spawning && portalTimer <= 0) {
+    sectionMode = (sectionMode === 'cube') ? 'ship' : 'cube';
+    obstacles.push({ kind: 'portal', to: sectionMode, x: W + 40, w: 40, used: false });
+    spawnTimer = 60;                       // brief breather right after a portal
+    portalTimer = 360 + Math.random() * 200;
+  }
+
+  // spawn obstacles (shape depends on the current section)
+  spawnTimer--;
+  if (spawning && spawnTimer <= 0) {
+    if (sectionMode === 'ship') {
+      spawnShipGate();
+      spawnTimer = Math.max(50, 80 - frame / 50) + Math.random() * 30;
+    } else {
+      spawnObstacle();
+      spawnTimer = Math.max(45, 90 - frame / 40) + Math.random() * 40;
+    }
+  }
+
+  // spawn collectibles (coins & stars)
+  collectTimer--;
+  if (spawning && collectTimer <= 0) {
+    spawnCollectible();
+    collectTimer = 120 + Math.random() * 90;
+  }
+
+  // move obstacles
+  const px = player.x, py = player.y, ps = player.size;
+  for (let o of obstacles) {
+    o.x -= speed;
+    const ox = o.x, ow = o.w;
+
+    // portal: crossing it switches the player's mode
+    if (o.kind === 'portal') {
+      if (!o.used && ox <= px + ps / 2) {
+        o.used = true;
+        player.mode = o.to;
+        player.vy = 0; player.rot = 0;
+        // portal flash
+        for (let i = 0; i < 22; i++) {
+          particles.push({
+            x: px + ps / 2, y: py + ps / 2,
+            vx: (Math.random() - 0.5) * 9, vy: (Math.random() - 0.5) * 9,
+            life: 30, color: o.to === 'ship' ? '#5adf9e' : '#ffb300', size: Math.random() * 4 + 2
+          });
+        }
+      }
+      continue;   // portals never kill
+    }
+
+    const pad = 6;
+
+    // ground block: allow landing on top (cube only)
+    if (o.kind === 'block') {
+      const topY = GROUND_Y - o.h;
+      if (px + ps > ox + 4 && px < ox + ow - 4 && player.vy >= 0 &&
+          py + ps <= topY + 18 && py + ps + player.vy >= topY) {
+        player.y = topY - ps;
+        player.vy = 0;
+        player.onGround = true;
+        player.jumps = 0;
+        player.rot = Math.round(player.rot / (Math.PI/2)) * (Math.PI/2);
+        continue;
+      }
+      if (collide(px+pad, py+pad, ps-pad*2, ps-pad*2, ox, GROUND_Y - o.h, ow, o.h)) { die(); return; }
+    }
+    else if (o.kind === 'spike') {
+      const oy = GROUND_Y - o.h;
+      if (collide(px+pad, py+pad, ps-pad*2, ps-pad*2, ox+6, oy+10, ow-12, o.h-10)) { die(); return; }
+    }
+    else if (o.kind === 'bar') {
+      // ship gate — solid rectangle, touching = death
+      if (collide(px+pad, py+pad, ps-pad*2, ps-pad*2, ox, o.y, ow, o.h)) { die(); return; }
+    }
+  }
+  obstacles = obstacles.filter(o => o.x + o.w > -10);
+
+  // collectibles: move, spin, and check pickup
+  const pcx = px + ps / 2, pcy = py + ps / 2;
+  for (let c of collectibles) {
+    c.x -= speed;
+    c.spin += 0.15;
+    if (!c.collected) {
+      const dx = pcx - c.x, dy = pcy - c.y;
+      if (dx * dx + dy * dy < (ps / 2 + c.r) * (ps / 2 + c.r)) {
+        c.collected = true;
+        if (c.kind === 'star') { starsCollected++; document.getElementById('starsC').textContent = starsCollected; }
+        else { coins++; document.getElementById('coins').textContent = coins; }
+        // sparkle burst
+        const col = c.kind === 'star' ? '#ffd84d' : '#ffcf3f';
+        for (let i = 0; i < 12; i++) {
+          particles.push({
+            x: c.x, y: c.y,
+            vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6,
+            life: 25, color: col, size: Math.random() * 3 + 1
+          });
+        }
+      }
+    }
+  }
+  collectibles = collectibles.filter(c => !c.collected && c.x + c.r > -10);
+
+  // particles
+  for (let p of particles) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--;
+  }
+  particles = particles.filter(p => p.life > 0);
+
+  // background elements: bubbles rise, bolts drift left
+  for (let s of stars) {
+    if (theme.bg === 'bubbles') {
+      s.y -= (s.s + 0.4) * 2;
+      s.x += Math.sin((frame + s.y) * 0.05) * 0.4;   // gentle wobble
+      if (s.y < 0) { s.y = GROUND_Y - 10; s.x = Math.random() * W; }
+    } else {
+      s.x -= s.s * (speed / baseSpeed) * 2;
+      if (s.x < 0) { s.x = W; s.y = Math.random() * (GROUND_Y - 40); }
+    }
+  }
+}
+
+// ---- Draw ----
+function drawBackground() {
+  // gradient sky from the active theme
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, theme.sky[0]);
+  g.addColorStop(0.6, theme.sky[1]);
+  g.addColorStop(1, theme.sky[2]);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  if (theme.bg === 'bubbles') drawHills();
+
+  if (theme.bg === 'bolts') {
+    // flickering electric bolts in the sky
+    for (let s of stars) {
+      ctx.globalAlpha = 0.4 + Math.abs(Math.sin((frame + s.x) * 0.1)) * 0.5;
+      ctx.strokeStyle = theme.accent;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(s.x + 5, s.y + 8);
+      ctx.lineTo(s.x - 3, s.y + 14);
+      ctx.lineTo(s.x + 4, s.y + 22);
+      ctx.stroke();
+    }
+  } else {
+    // rising bubbles for the water level
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1;
+    for (let s of stars) {
+      ctx.globalAlpha = 0.35 + s.s;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r + 1.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // moving perspective grid on the ground
+  ctx.strokeStyle = theme.accent + '2b';   // ~17% alpha
+  ctx.lineWidth = 1;
+  const off = (frame * speed) % 60;
+  for (let x = -off; x < W; x += 60) {
+    ctx.beginPath(); ctx.moveTo(x, GROUND_Y); ctx.lineTo(x - 40, H); ctx.stroke();
+  }
+}
+
+// rolling parallax hills behind the water level
+function drawHills() {
+  const layers = [
+    { c: 'rgba(40,120,90,0.45)', amp: 40, baseY: GROUND_Y - 60, sp: 0.3, len: 260 },
+    { c: 'rgba(60,160,110,0.55)', amp: 30, baseY: GROUND_Y - 20, sp: 0.6, len: 200 }
+  ];
+  for (const L of layers) {
+    const shift = (frame * speed * L.sp) % L.len;
+    ctx.fillStyle = L.c;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = -shift; x <= W + L.len; x += 6) {
+      const y = L.baseY + Math.sin(x / L.len * Math.PI * 2) * L.amp;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawGround() {
+  if (theme.bg === 'bubbles') {
+    // translucent water body with a shimmering surface line
+    ctx.fillStyle = 'rgba(20, 90, 150, 0.85)';
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+    ctx.strokeStyle = '#bfefff';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = theme.accent;
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    for (let x = 0; x <= W; x += 10) {
+      ctx.lineTo(x, GROUND_Y + Math.sin((x + frame * speed) * 0.05) * 3);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    return;
+  }
+  // default (electro) neon floor
+  ctx.fillStyle = '#0b0b1e';
+  ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+  ctx.strokeStyle = theme.accent;
+  ctx.lineWidth = 3;
+  ctx.shadowColor = theme.accent;
+  ctx.shadowBlur = 15;
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND_Y); ctx.lineTo(W, GROUND_Y); ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function drawPlayer() {
+  const s = player.size;
+  // trail (uses the chosen skin's main color)
+  for (let i = 0; i < player.trail.length; i++) {
+    const t = player.trail[i];
+    ctx.globalAlpha = (i / player.trail.length) * 0.35;
+    ctx.fillStyle = currentSkin.colors[1];
+    ctx.fillRect(t.x, t.y, s, s);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.save();
+  ctx.translate(player.x + s/2, player.y + s/2);
+  ctx.rotate(player.rot);
+  // glow (from the chosen skin)
+  ctx.shadowColor = currentSkin.glow;
+  ctx.shadowBlur = 20;
+  // body — the selected cube color
+  const g = ctx.createLinearGradient(-s/2, -s/2, s/2, s/2);
+  g.addColorStop(0, currentSkin.colors[0]);
+  g.addColorStop(1, currentSkin.colors[1]);
+  ctx.fillStyle = g;
+  ctx.fillRect(-s/2, -s/2, s, s);
+  ctx.shadowBlur = 0;
+  // inner square
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillRect(-s/6, -s/6, s/3, s/3);
+  // border
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(-s/2, -s/2, s, s);
+
+  // ship mode: add a little nose cone + fin so it reads as a rocket
+  if (player.mode === 'ship') {
+    ctx.fillStyle = currentSkin.glow;
+    ctx.beginPath();                       // nose at the front (right)
+    ctx.moveTo(s/2, -s/4);
+    ctx.lineTo(s/2 + s/3, 0);
+    ctx.lineTo(s/2, s/4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();                       // tail fin (left)
+    ctx.moveTo(-s/2, s/2);
+    ctx.lineTo(-s/2 - s/4, s/2 + s/5);
+    ctx.lineTo(-s/2, s/6);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawObstacles() {
+  for (let o of obstacles) {
+    if (o.kind === 'spike') {
+      const baseY = GROUND_Y;
+      ctx.fillStyle = theme.spike;
+      ctx.shadowColor = theme.spike;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(o.x, baseY);
+      ctx.lineTo(o.x + o.w/2, baseY - o.h);
+      ctx.lineTo(o.x + o.w, baseY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = theme.spikeStroke;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    } else if (o.kind === 'block') {
+      const topY = GROUND_Y - o.h;
+      ctx.fillStyle = theme.block;
+      ctx.shadowColor = theme.block;
+      ctx.shadowBlur = 12;
+      ctx.fillRect(o.x, topY, o.w, o.h);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = theme.blockStroke;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(o.x, topY, o.w, o.h);
+    } else if (o.kind === 'bar') {
+      // ship-gate bar (uses absolute y/h)
+      ctx.fillStyle = theme.block;
+      ctx.shadowColor = theme.block;
+      ctx.shadowBlur = 12;
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = theme.blockStroke;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(o.x, o.y, o.w, o.h);
+    } else if (o.kind === 'portal') {
+      // glowing oval gate: green -> ship, orange -> cube
+      const col = o.to === 'ship' ? '#5adf9e' : '#ffb300';
+      const cx = o.x + o.w / 2, cyc = (SHIP_TOP + GROUND_Y) / 2, rh = (GROUND_Y - SHIP_TOP) / 2;
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = col;
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 22;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.ellipse(cx, cyc, o.w / 2, rh, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = col;
+      ctx.fill();
+      ctx.restore();
+      // icon
+      ctx.globalAlpha = 1;
+      ctx.font = '22px Segoe UI';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(o.to === 'ship' ? '🚀' : '🟦', cx, cyc);
+    }
+  }
+}
+
+function drawCollectibles() {
+  for (let c of collectibles) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    if (c.kind === 'coin') {
+      // spinning gold coin (width oscillates to fake 3D spin)
+      const w = Math.abs(Math.cos(c.spin)) * c.r + 2;
+      ctx.shadowColor = '#ffcf3f';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = '#ffcf3f';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, w, c.r, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#b8860b';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#fff3c4';
+      ctx.font = 'bold 12px Segoe UI';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (w > 5) ctx.fillText('$', 0, 1);
+    } else {
+      // 5-point golden star
+      ctx.rotate(c.spin * 0.3);
+      ctx.shadowColor = '#ffd84d';
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = '#ffd84d';
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const ang = (Math.PI / 5) * i - Math.PI / 2;
+        const rad = i % 2 === 0 ? c.r : c.r / 2.3;
+        ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function drawParticles() {
+  for (let p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life / 45);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function loop() {
+  update();
+  drawBackground();
+  drawObstacles();
+  drawCollectibles();
+  drawGround();
+  if (state !== 'dead') drawPlayer();
+  drawParticles();
+  requestAnimationFrame(loop);
+}
+loop();
+
+// ---- PWA: register the service worker (skips file:// where it isn't allowed) ----
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      console.warn('SW registration failed:', err);
+    });
+  });
+}
+</script>
+</body>
+</html>
