@@ -91,6 +91,13 @@
   .level-card .lv-icon { font-size: 2.4rem; }
   .level-card .lv-name { font-weight: 800; letter-spacing: 1px; margin: 6px 0 2px; font-size: 1.15rem; }
   .level-card .lv-best { font-size: .8rem; opacity: .7; }
+  .lv-diff {
+    display: inline-block; font-size: .72rem; font-weight: 800; letter-spacing: 1px;
+    padding: 3px 10px; border-radius: 20px; margin: 2px 0 6px;
+  }
+  .diff-easy  { background: rgba(90,223,158,0.22);  color: #7dffc0; border: 1px solid #5adf9e; }
+  .diff-hard  { background: rgba(255,140,60,0.22);  color: #ffb066; border: 1px solid #ff8c3c; }
+  .diff-demon { background: rgba(255,61,61,0.22);   color: #ff8a8a; border: 1px solid #ff3d3d; }
   .level-card.electro:hover { border-color: #4de0ff; box-shadow: 0 0 22px rgba(77,224,255,.5); }
   .level-card.water:hover   { border-color: #4dd0ff; box-shadow: 0 0 22px rgba(77,208,255,.5); }
   .level-card.demon:hover   { border-color: #ff3d3d; box-shadow: 0 0 22px rgba(255,61,61,.55); }
@@ -103,28 +110,69 @@
   .skins-wrap .lbl { font-size: .8rem; letter-spacing: 2px; opacity: .7; margin-bottom: 8px; }
   .skins { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
   .skin {
-    width: 46px; height: 46px; border-radius: 10px;
-    border: 3px solid rgba(255,255,255,0.3);
+    width: 46px; height: 46px;
     cursor: pointer; position: relative;
     display: flex; align-items: center; justify-content: center;
-    transition: transform .12s ease, border-color .12s ease;
+    transition: transform .12s ease;
   }
-  .skin:hover { transform: scale(1.1); }
-  .skin.selected { border-color: #fff; box-shadow: 0 0 14px rgba(255,255,255,.8); }
-  .skin.locked { cursor: help; }
-  .skin.locked::after {
-    content: "🔒"; position: absolute; font-size: 1.2rem;
-    filter: drop-shadow(0 1px 2px #000);
+  .skin:hover { transform: scale(1.12); }
+  .skin-fill { position: absolute; inset: 0; border-radius: 8px; }
+  .skin.selected .skin-fill { filter: drop-shadow(0 0 5px #fff) drop-shadow(0 0 2px #fff); }
+  .skin.selected::after {
+    content: ""; position: absolute; inset: -5px; border-radius: 10px;
+    border: 2px solid #fff;
   }
-  .skin.locked > span { opacity: 0; }
   .skin .tip {
     position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
     background: #000; color: #fff; font-size: .7rem; padding: 4px 8px;
     border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none;
-    transition: opacity .12s ease;
+    transition: opacity .12s ease; z-index: 2;
   }
   .skin:hover .tip { opacity: .95; }
+  .skin.shop-chip {
+    background: rgba(255,255,255,0.12);
+    border: 2px dashed rgba(255,255,255,0.4);
+    border-radius: 10px;
+    font-size: 1.4rem;
+  }
   .unlock-msg { margin-top: 10px; color: #ffd84d; font-weight: 700; min-height: 1.2em; }
+
+  .wallet {
+    margin-top: 16px; font-weight: 800; font-size: 1.1rem;
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.25);
+    padding: 8px 18px; border-radius: 30px;
+  }
+
+  /* Shop */
+  .shop-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 14px; margin: 18px 0 6px;
+    width: min(92%, 560px); max-height: 46vh; overflow-y: auto;
+    padding: 4px;
+  }
+  .shop-item {
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 14px; padding: 12px 10px; text-align: center;
+  }
+  .shop-item.equipped { border-color: #5adf9e; box-shadow: 0 0 14px rgba(90,223,158,.5); }
+  .shop-swatch {
+    width: 54px; height: 54px; border-radius: 12px; margin: 0 auto 8px;
+    border: 3px solid rgba(255,255,255,0.35);
+  }
+  .shop-name { font-weight: 700; margin-bottom: 8px; }
+  .shop-price { font-size: .8rem; opacity: .85; margin-bottom: 6px; }
+  .shop-buyrow { display: flex; gap: 6px; justify-content: center; }
+  .shop-buy {
+    background: linear-gradient(135deg, #5a82ff, #ff4d9d); color: #fff;
+    border: none; padding: 7px 12px; border-radius: 20px;
+    font-weight: 700; cursor: pointer; font-size: .85rem;
+    transition: transform .1s ease;
+  }
+  .shop-buy.equip { background: rgba(255,255,255,0.2); }
+  .shop-buy:hover { transform: scale(1.07); }
+  .shop-tag { font-weight: 700; font-size: .85rem; padding: 6px 0; }
+  .equipped-tag { color: #5adf9e; }
 
   #hud {
     position: absolute;
@@ -164,6 +212,27 @@
   #wrap:not(.in-game) #hud,
   #wrap:not(.in-game) #progressWrap { opacity: 0; }
 
+  /* Boss HP bar */
+  #bossWrap {
+    position: absolute; top: 54px; left: 50%; transform: translateX(-50%);
+    width: 66%; max-width: 500px; z-index: 5; text-align: center;
+  }
+  #bossWrap.hidden { display: none; }
+  .boss-label {
+    color: #ff6b6b; font-weight: 800; font-size: .8rem; letter-spacing: 2px;
+    text-shadow: 0 2px 6px rgba(0,0,0,.7); margin-bottom: 3px;
+  }
+  #bossHpTrack {
+    height: 16px; background: rgba(0,0,0,0.45);
+    border: 2px solid #ff3d3d; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 0 16px rgba(255,61,61,.6);
+  }
+  #bossHp {
+    height: 100%; width: 100%;
+    background: linear-gradient(90deg, #ff3d3d, #ff7a1a);
+    transition: width .1s linear;
+  }
+
   #muteBtn {
     position: absolute; bottom: 12px; right: 12px;
     z-index: 6;
@@ -187,6 +256,7 @@
     <div style="text-align:right"><span class="label">BEST</span><span id="best">0</span></div>
   </div>
   <div id="progressWrap"><div id="progressBar"></div><div id="progressFlag">🏁</div></div>
+  <div id="bossWrap" class="hidden"><div class="boss-label">👿 DEMON BOSS</div><div id="bossHpTrack"><div id="bossHp"></div></div></div>
   <button id="muteBtn" title="Mute / unmute music">🔊</button>
 
   <div class="overlay" id="startScreen">
@@ -196,23 +266,28 @@
       <div class="level-card electro" data-level="electro">
         <div class="lv-icon">⚡</div>
         <div class="lv-name">ELECTRO</div>
+        <div class="lv-diff diff-hard">🔴 HARD</div>
         <div class="lv-best">Best: <span id="best-electro">0</span></div>
       </div>
       <div class="level-card water" data-level="water">
         <div class="lv-icon">🌊</div>
         <div class="lv-name">WATER ON HILL</div>
+        <div class="lv-diff diff-easy">🟢 EASY</div>
         <div class="lv-best">Best: <span id="best-water">0</span></div>
       </div>
       <div class="level-card demon" data-level="demon">
         <div class="lv-icon">👿</div>
         <div class="lv-name">DEMON</div>
+        <div class="lv-diff diff-demon">👿 EASY DEMON</div>
         <div class="lv-best">Best: <span id="best-demon">0</span></div>
         <div class="lv-req" id="demonReq">🔒 Needs 6🪙 &amp; 2⭐</div>
       </div>
     </div>
 
+    <div class="wallet">💰 <span class="wallet-coins">0</span> 🪙&nbsp;&nbsp;<span class="wallet-stars">0</span> ⭐</div>
+
     <div class="skins-wrap">
-      <div class="lbl">CUBE COLOR</div>
+      <div class="lbl">PLAYER ICON — tap to equip, 🛒 to buy more</div>
       <div class="skins" id="skinRow"></div>
     </div>
 
@@ -234,12 +309,21 @@
   </div>
 
   <div class="overlay hidden" id="winScreen">
-    <h1 style="color:#5adf9e;text-shadow:0 0 20px #5adf9e">LEVEL COMPLETE!</h1>
-    <div class="big-score">🏁 You reached the finish!</div>
+    <h1 id="winTitle" style="color:#5adf9e;text-shadow:0 0 20px #5adf9e">LEVEL COMPLETE!</h1>
+    <div class="big-score" id="winBig">🏁 You reached the finish!</div>
     <p id="winStats">🪙 0 coins · ⭐ 0 stars</p>
     <p class="unlock-msg" id="unlockMsg"></p>
     <button class="btn" id="nextBtn">↻ PLAY AGAIN</button>
     <button class="btn" id="winLevelsBtn" style="background:rgba(255,255,255,0.15);box-shadow:none;">☰ LEVELS</button>
+  </div>
+
+  <div class="overlay hidden" id="shopScreen">
+    <h1 style="font-size:clamp(1.6rem,5vw,2.6rem)">🛒 ICON SHOP</h1>
+    <div class="wallet">💰 <span class="wallet-coins">0</span> 🪙&nbsp;&nbsp;<span class="wallet-stars">0</span> ⭐</div>
+    <p class="hint" style="margin-top:6px">Each icon costs <b>10 🪙</b> or <b>1 ⭐</b>. Collect them by finishing levels!</p>
+    <div class="shop-grid" id="shopGrid"></div>
+    <p class="unlock-msg" id="shopMsg"></p>
+    <button class="btn" id="shopCloseBtn" style="background:rgba(255,255,255,0.15);box-shadow:none;">← BACK</button>
   </div>
 </div>
 
@@ -254,6 +338,10 @@ canvas.width = W; canvas.height = H;
 const GROUND_Y = H - 70;
 const GOAL = 1000;   // reach this score to finish the level
 
+// Demon boss fight
+const BOSS_SCORE = 780;      // demon: boss flies in at this score instead of a distance finish
+const BOSS_DURATION = 1350;  // frames of survival to defeat it (~22s)
+
 // ship mode tuning
 const SHIP_TOP = 24;
 const SHIP_GRAV = 0.5;
@@ -267,7 +355,9 @@ let state = 'start'; // start | playing | dead | paused | won
 const LEVELS = {
   electro: {
     name: 'ELECTRO',
-    baseSpeed: 7.5,          // fast & frantic
+    diff: { label: 'HARD', cls: 'hard' },
+    baseSpeed: 8.6,          // HARD — fast & frantic
+    spawnGap: 0.82,          // obstacles come tighter
     sky: ['#241046', '#3a1670', '#0a0518'],
     accent: '#4de0ff',        // grid / ground glow
     spike: '#c86bff', spikeStroke: '#e9c9ff',
@@ -283,7 +373,9 @@ const LEVELS = {
   },
   water: {
     name: 'WATER ON HILL',
-    baseSpeed: 5.5,          // calmer, flowing
+    diff: { label: 'EASY', cls: 'easy' },
+    baseSpeed: 4.8,          // EASY — calm & forgiving
+    spawnGap: 1.35,          // lots of room between obstacles
     sky: ['#7ad0ff', '#4a9fe0', '#1e3a6b'],
     accent: '#2ec4ff',
     spike: '#1f8fff', spikeStroke: '#bfe9ff',
@@ -299,7 +391,9 @@ const LEVELS = {
   },
   demon: {
     name: 'DEMON',
-    baseSpeed: 9.5,          // brutally fast
+    diff: { label: 'EASY DEMON', cls: 'demon' },
+    baseSpeed: 9.0,          // EASY DEMON — still brutal, but the gentlest demon
+    spawnGap: 0.95,
     sky: ['#3a0000', '#1a0008', '#000000'],
     accent: '#ff3d3d',
     spike: '#ff2d55', spikeStroke: '#ffd0d8',
@@ -318,34 +412,44 @@ const LEVELS = {
   }
 };
 
-// ---- Cube colors (skins) — some unlocked by playing ----
+// ---- Player icons (shape + colors). Two are free; the rest are bought. ----
+const ICON_COST_COINS = 10;   // price of any shop icon in coins...
+const ICON_COST_STARS = 1;    // ...or in stars
 const SKINS = [
-  { id:'classic', name:'Classic', colors:['#eaffff','#4de0ff'], glow:'#4de0ff', how:'Starter' },
-  { id:'rose',    name:'Rose',    colors:['#ffd1e8','#ff4d9d'], glow:'#ff4d9d', how:'Starter' },
-  { id:'volt',    name:'Volt',    colors:['#eaffef','#5adf9e'], glow:'#5adf9e', how:'Finish Electro' },
-  { id:'aqua',    name:'Aqua',    colors:['#dff6ff','#1f8fff'], glow:'#1f8fff', how:'Finish Water on Hill' },
-  { id:'gold',    name:'Gold',    colors:['#fff3c4','#ffb300'], glow:'#ffd84d', how:'Collect 5 stars total' },
-  { id:'inferno', name:'Inferno', colors:['#ffe08a','#ff3d3d'], glow:'#ff5a3d', how:'Finish Demon' }
+  { id:'classic', name:'Cube',    shape:'square',   colors:['#eaffff','#4de0ff'], glow:'#4de0ff', free:true },
+  { id:'rose',    name:'Orb',     shape:'circle',   colors:['#ffd1e8','#ff4d9d'], glow:'#ff4d9d', free:true },
+  { id:'volt',    name:'Dart',    shape:'triangle', colors:['#eaffef','#5adf9e'], glow:'#5adf9e' },
+  { id:'aqua',    name:'Gem',     shape:'diamond',  colors:['#dff6ff','#1f8fff'], glow:'#1f8fff' },
+  { id:'gold',    name:'Star',    shape:'star',     colors:['#fff3c4','#ffb300'], glow:'#ffd84d' },
+  { id:'inferno', name:'Hex',     shape:'hexagon',  colors:['#ffe08a','#ff3d3d'], glow:'#ff5a3d' },
+  { id:'shadow',  name:'Penta',   shape:'pentagon', colors:['#8a8a9e','#2a2a3a'], glow:'#b0b0d0' },
+  { id:'toxic',   name:'Octo',    shape:'octagon',  colors:['#eaffb0','#8ee800'], glow:'#b6ff2b' }
 ];
+// CSS clip-paths for the little shop/menu previews (square = none)
+const SHAPE_CLIP = {
+  square:   'none',
+  circle:   'circle(50%)',
+  triangle: 'polygon(50% 2%, 98% 98%, 2% 98%)',
+  diamond:  'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)',
+  star:     'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
+  hexagon:  'polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%)',
+  pentagon: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)',
+  octagon:  'polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%)'
+};
+// finishing a level grants its themed icon for free
+const COMPLETION_REWARD = { electro:'volt', water:'aqua', demon:'inferno' };
 
-// Is a skin unlocked given current progress?
-function skinUnlocked(id) {
-  switch (id) {
-    case 'classic': case 'rose': return true;
-    case 'volt':    return !!progress.completed.electro;
-    case 'aqua':    return !!progress.completed.water;
-    case 'gold':    return progress.totalStars >= 5;
-    case 'inferno': return !!progress.completed.demon;
-    default: return false;
-  }
-}
+function isFree(id) { const s = SKINS.find(x => x.id === id); return !!(s && s.free); }
+function owns(id) { return isFree(id) || progress.owned.indexOf(id) !== -1; }
 
 // ---- Persistent progression (single JSON blob; file:// safe) ----
 const DEFAULT_PROGRESS = {
   best: { electro:0, water:0, demon:0 },
   completed: { electro:false, water:false, demon:false },
-  totalCoins: 0, totalStars: 0,
-  skin: 'classic'
+  wallet: { coins: 0, stars: 0 },    // spendable balance
+  owned: ['classic', 'rose'],        // owned icon ids
+  demonUnlocked: false,              // latches true, so spending never re-locks it
+  skin: 'classic'                    // equipped icon
 };
 let progress = structuredCloneSafe(DEFAULT_PROGRESS);
 
@@ -356,10 +460,22 @@ function loadProgress() {
     const raw = localStorage.getItem('geoRushSave');
     if (raw) {
       const p = JSON.parse(raw);
-      // merge onto defaults so new fields never break an old save
       progress = Object.assign(structuredCloneSafe(DEFAULT_PROGRESS), p);
       progress.best = Object.assign({electro:0,water:0,demon:0}, p.best || {});
       progress.completed = Object.assign({electro:false,water:false,demon:false}, p.completed || {});
+      // migrate old saves (totalCoins/totalStars -> wallet)
+      progress.wallet = Object.assign({coins:0, stars:0}, p.wallet ||
+        { coins: p.totalCoins || 0, stars: p.totalStars || 0 });
+      progress.owned = Array.isArray(p.owned) ? p.owned.slice() : ['classic','rose'];
+      // grant completion-reward icons for levels already beaten (preserves old unlocks)
+      for (const lvl in COMPLETION_REWARD) {
+        if (progress.completed[lvl] && progress.owned.indexOf(COMPLETION_REWARD[lvl]) === -1)
+          progress.owned.push(COMPLETION_REWARD[lvl]);
+      }
+      if (progress.owned.indexOf('classic') === -1) progress.owned.push('classic');
+      if (progress.owned.indexOf('rose') === -1) progress.owned.push('rose');
+      // never leave an un-owned icon equipped
+      if (!owns(progress.skin)) progress.skin = 'classic';
     }
   } catch (e) { /* keep defaults */ }
 }
@@ -368,11 +484,16 @@ function saveProgress() {
 }
 loadProgress();
 
-// Demon unlock check
-function demonUnlocked() {
-  return progress.totalCoins >= LEVELS.demon.reqCoins &&
-         progress.totalStars >= LEVELS.demon.reqStars;
+// Demon unlocks once you've banked 6 coins & 2 stars — then latches on forever.
+function checkDemonUnlock() {
+  if (!progress.demonUnlocked &&
+      progress.wallet.coins >= LEVELS.demon.reqCoins &&
+      progress.wallet.stars >= LEVELS.demon.reqStars) {
+    progress.demonUnlocked = true;
+  }
+  return progress.demonUnlocked;
 }
+function demonUnlocked() { return checkDemonUnlock(); }
 
 let currentLevel = 'electro';   // set when a level is chosen
 let theme = LEVELS.electro;     // active theme, drives all drawing
@@ -387,8 +508,15 @@ let starsCollected = 0;   // stars collected this run
 let collectibles = [];    // coins & stars floating in the world
 let collectTimer = 0;
 
-// Render the whole start menu: bests, demon lock, skin swatches.
+// Update every wallet readout on screen.
+function refreshWallet() {
+  document.querySelectorAll('.wallet-coins').forEach(e => e.textContent = progress.wallet.coins);
+  document.querySelectorAll('.wallet-stars').forEach(e => e.textContent = progress.wallet.stars);
+}
+
+// Render the whole start menu: bests, demon lock, owned-icon swatches, wallet.
 function refreshMenu() {
+  refreshWallet();
   // per-level bests
   for (const key in LEVELS) {
     const el = document.getElementById('best-' + key);
@@ -404,31 +532,94 @@ function refreshMenu() {
       req.style.color = '#5adf9e';
     } else {
       demonCard.classList.add('locked');
-      req.textContent = `🔒 ${progress.totalCoins}/6🪙  ${progress.totalStars}/2⭐`;
+      req.textContent = `🔒 ${progress.wallet.coins}/6🪙  ${progress.wallet.stars}/2⭐`;
       req.style.color = '#ffd84d';
     }
   }
-  // skin swatches
+  // owned-icon swatches (click to equip) + a shop shortcut
   const row = document.getElementById('skinRow');
   if (row) {
     row.innerHTML = '';
-    SKINS.forEach(sk => {
-      const unlocked = skinUnlocked(sk.id);
+    SKINS.filter(sk => owns(sk.id)).forEach(sk => {
       const div = document.createElement('div');
-      div.className = 'skin' + (unlocked ? '' : ' locked') + (currentSkin.id === sk.id ? ' selected' : '');
-      div.style.background = `linear-gradient(135deg, ${sk.colors[0]}, ${sk.colors[1]})`;
-      div.innerHTML = `<span></span><div class="tip">${unlocked ? sk.name : '🔒 ' + sk.how}</div>`;
-      if (unlocked) div.addEventListener('click', () => selectSkin(sk.id));
+      div.className = 'skin' + (currentSkin.id === sk.id ? ' selected' : '');
+      div.innerHTML =
+        `<div class="skin-fill" style="background:linear-gradient(135deg, ${sk.colors[0]}, ${sk.colors[1]});clip-path:${SHAPE_CLIP[sk.shape] || 'none'}"></div>` +
+        `<div class="tip">${sk.name}</div>`;
+      div.addEventListener('click', () => selectSkin(sk.id));
       row.appendChild(div);
     });
+    const shopChip = document.createElement('div');
+    shopChip.className = 'skin shop-chip';
+    shopChip.innerHTML = `🛒<div class="tip">Open shop</div>`;
+    shopChip.addEventListener('click', openShop);
+    row.appendChild(shopChip);
   }
 }
 
 function selectSkin(id) {
-  if (!skinUnlocked(id)) return;
+  if (!owns(id)) return;
   currentSkin = SKINS.find(s => s.id === id) || SKINS[0];
   progress.skin = currentSkin.id;
   saveProgress();
+  refreshMenu();
+}
+
+// ---- Shop ----
+function openShop() {
+  renderShop();
+  document.getElementById('shopScreen').classList.remove('hidden');
+}
+function closeShop() {
+  document.getElementById('shopScreen').classList.add('hidden');
+}
+function renderShop() {
+  refreshWallet();
+  const grid = document.getElementById('shopGrid');
+  grid.innerHTML = '';
+  SKINS.forEach(sk => {
+    const owned = owns(sk.id);
+    const equipped = currentSkin.id === sk.id;
+    const card = document.createElement('div');
+    card.className = 'shop-item' + (equipped ? ' equipped' : '');
+    let action;
+    if (equipped) {
+      action = `<div class="shop-tag equipped-tag">✓ Equipped</div>`;
+    } else if (owned) {
+      action = `<button class="shop-buy equip" data-equip="${sk.id}">Equip</button>`;
+    } else {
+      action = `<div class="shop-price">${ICON_COST_COINS}🪙 or ${ICON_COST_STARS}⭐</div>
+                <div class="shop-buyrow">
+                  <button class="shop-buy" data-buy="${sk.id}" data-cur="coins">Buy 🪙</button>
+                  <button class="shop-buy" data-buy="${sk.id}" data-cur="stars">Buy ⭐</button>
+                </div>`;
+    }
+    card.innerHTML =
+      `<div class="shop-swatch" style="background:linear-gradient(135deg, ${sk.colors[0]}, ${sk.colors[1]});clip-path:${SHAPE_CLIP[sk.shape] || 'none'}"></div>
+       <div class="shop-name">${sk.name}</div>${action}`;
+    grid.appendChild(card);
+  });
+  grid.querySelectorAll('[data-buy]').forEach(b =>
+    b.addEventListener('click', () => buySkin(b.dataset.buy, b.dataset.cur)));
+  grid.querySelectorAll('[data-equip]').forEach(b =>
+    b.addEventListener('click', () => { selectSkin(b.dataset.equip); renderShop(); }));
+}
+function buySkin(id, cur) {
+  if (owns(id)) return;
+  const msg = document.getElementById('shopMsg');
+  if (cur === 'coins') {
+    if (progress.wallet.coins < ICON_COST_COINS) { msg.textContent = `Need ${ICON_COST_COINS} 🪙 — collect more!`; return; }
+    progress.wallet.coins -= ICON_COST_COINS;
+  } else {
+    if (progress.wallet.stars < ICON_COST_STARS) { msg.textContent = `Need ${ICON_COST_STARS} ⭐ — collect more!`; return; }
+    progress.wallet.stars -= ICON_COST_STARS;
+  }
+  progress.owned.push(id);
+  progress.skin = id;                                  // auto-equip the new icon
+  currentSkin = SKINS.find(s => s.id === id) || currentSkin;
+  saveProgress();
+  msg.textContent = `Bought ${SKINS.find(s=>s.id===id).name}! 🎉`;
+  renderShop();
   refreshMenu();
 }
 refreshMenu();
@@ -457,6 +648,11 @@ let spawnTimer = 0;
 let portalTimer = 0;
 let sectionMode = 'cube';   // which mode we're currently spawning for
 let holding = false;         // is jump/thrust being held?
+
+// boss fight state
+let bossActive = false;
+let bossProjectiles = [];
+const boss = { x: 0, y: 0, baseY: 130, hp: 0, maxHp: BOSS_DURATION, t: 0, atkTimer: 0, pattern: 0, flash: 0, intro: 0 };
 
 // ============ AUDIO / MUSIC ENGINE (procedural chiptune) ============
 let actx = null, masterGain = null, musicTimer = null, musicStep = 0;
@@ -502,6 +698,19 @@ function kick(t) {
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
   o.connect(g).connect(masterGain);
   o.start(t); o.stop(t + 0.18);
+}
+// ---- Pickup SFX (routed through masterGain, so mute silences them too) ----
+function sfxCoin() {
+  if (!actx) return;
+  const t = actx.currentTime;
+  tone(nf('B5'), t, 0.07, 'square', 0.4);          // classic two-note "coin" blip
+  tone(nf('E6'), t + 0.06, 0.12, 'square', 0.4);
+}
+function sfxStar() {
+  if (!actx) return;
+  const t = actx.currentTime;
+  ['C6', 'E6', 'G6', 'C7'].forEach((n, i) =>      // bright rising sparkle
+    tone(nf(n), t + i * 0.05, 0.16, 'triangle', 0.38));
 }
 function startMusic() {
   initAudio();
@@ -552,6 +761,8 @@ function reset() {
   collectTimer = 40;
   portalTimer = 480;       // first portal well into the run
   sectionMode = 'cube';
+  bossActive = false;
+  bossProjectiles = [];
   player.y = GROUND_Y - player.size;
   player.vy = 0;
   player.onGround = true;
@@ -563,6 +774,8 @@ function reset() {
   document.getElementById('coins').textContent = 0;
   document.getElementById('starsC').textContent = 0;
   document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('bossWrap').classList.add('hidden');
+  document.getElementById('progressWrap').classList.remove('hidden');
 }
 
 // ---- Input ----
@@ -623,6 +836,7 @@ document.getElementById('levelsBtn').onclick = showLevelSelect;
 document.getElementById('resumeBtn').onclick = togglePause;
 document.getElementById('nextBtn').onclick = () => startGame(currentLevel);
 document.getElementById('winLevelsBtn').onclick = showLevelSelect;
+document.getElementById('shopCloseBtn').onclick = closeShop;
 const muteBtn = document.getElementById('muteBtn');
 muteBtn.textContent = muted ? '🔇' : '🔊';
 muteBtn.onclick = (e) => { e.stopPropagation(); initAudio(); toggleMute(); };
@@ -632,6 +846,7 @@ function hideAllScreens() {
   document.getElementById('deathScreen').classList.add('hidden');
   document.getElementById('pauseScreen').classList.add('hidden');
   document.getElementById('winScreen').classList.add('hidden');
+  document.getElementById('shopScreen').classList.add('hidden');
 }
 
 function startGame(levelKey) {
@@ -677,6 +892,8 @@ function togglePause() {
 function die() {
   state = 'dead';
   stopMusic();
+  bossActive = false;
+  document.getElementById('bossWrap').classList.add('hidden');
   // explosion
   for (let i = 0; i < 40; i++) {
     particles.push({
@@ -689,22 +906,31 @@ function die() {
       size: Math.random() * 5 + 2
     });
   }
-  if (score > best) {
-    best = score;
-    progress.best[currentLevel] = best;
-    saveProgress();
-    document.getElementById('best').textContent = best;
-  }
+  // you keep the coins & stars you grabbed, even on a failed run
+  progress.wallet.coins += coins;
+  progress.wallet.stars += starsCollected;
+  const wasDemon = demonUnlocked();
+  checkDemonUnlock();
+  if (score > best) { best = score; progress.best[currentLevel] = best; document.getElementById('best').textContent = best; }
+  saveProgress();
+  refreshMenu();
+
   const msgs = ['So close!', 'Try again!', 'Getting better!', 'Almost had it!', 'Keep going!'];
   document.getElementById('finalScore').textContent = score;
-  document.getElementById('deathMsg').textContent =
-    score >= best && score > 0 ? '🏆 New best score!' : msgs[Math.floor(Math.random()*msgs.length)];
+  let note = score >= best && score > 0 ? '🏆 New best score!' : msgs[Math.floor(Math.random()*msgs.length)];
+  if (coins || starsCollected) note += `  ·  banked 🪙${coins} ⭐${starsCollected}`;
+  if (!wasDemon && demonUnlocked()) note += '  ·  👿 DEMON unlocked!';
+  document.getElementById('deathMsg').textContent = note;
   document.getElementById('deathScreen').classList.remove('hidden');
 }
 
-function win() {
+function win(bossKill) {
   state = 'won';
   stopMusic();
+  bossActive = false;
+  document.getElementById('bossWrap').classList.add('hidden');
+  document.getElementById('winTitle').textContent = bossKill ? '👿 BOSS DEFEATED!' : 'LEVEL COMPLETE!';
+  document.getElementById('winBig').textContent = bossKill ? '👿 You slayed the Demon Boss!' : '🏁 You reached the finish!';
   // celebratory confetti burst
   for (let i = 0; i < 60; i++) {
     particles.push({
@@ -717,31 +943,94 @@ function win() {
       size: Math.random() * 5 + 2
     });
   }
-  // snapshot what was unlocked BEFORE banking this run's rewards
   const wasDemon = demonUnlocked();
-  const wasUnlocked = {};
-  SKINS.forEach(s => wasUnlocked[s.id] = skinUnlocked(s.id));
 
-  // bank rewards & completion
-  progress.totalCoins += coins;
-  progress.totalStars += starsCollected;
+  // bank the run's coins & stars into the spendable wallet
+  progress.wallet.coins += coins;
+  progress.wallet.stars += starsCollected;
   progress.completed[currentLevel] = true;
   if (score > best) { best = score; document.getElementById('best').textContent = best; }
   progress.best[currentLevel] = Math.max(progress.best[currentLevel] || 0, score);
+
+  // finishing a level grants its themed icon for free
+  const unlocks = [];
+  const reward = COMPLETION_REWARD[currentLevel];
+  if (reward && !owns(reward)) {
+    progress.owned.push(reward);
+    unlocks.push('🎨 ' + SKINS.find(s => s.id === reward).name + ' icon');
+  }
+  if (!wasDemon && checkDemonUnlock()) unlocks.push('👿 DEMON level');
   saveProgress();
 
-  // figure out what just unlocked
-  const unlocks = [];
-  SKINS.forEach(s => { if (!wasUnlocked[s.id] && skinUnlocked(s.id)) unlocks.push('🎨 ' + s.name + ' cube'); });
-  if (!wasDemon && demonUnlocked()) unlocks.push('👿 DEMON level');
-
   document.getElementById('winStats').textContent =
-    `🪙 ${coins} coins · ⭐ ${starsCollected} stars`;
+    `🪙 ${coins} coins · ⭐ ${starsCollected} stars  (spend them in the 🛒 shop!)`;
   document.getElementById('unlockMsg').textContent =
     unlocks.length ? 'Unlocked: ' + unlocks.join('  ·  ') : '';
 
   refreshMenu();  // keep the start screen in sync for next time
   document.getElementById('winScreen').classList.remove('hidden');
+}
+
+// ---- Boss fight (Demon finale) ----
+function startBoss() {
+  bossActive = true;
+  obstacles = [];
+  collectibles = [];
+  bossProjectiles = [];
+  sectionMode = 'cube';
+  player.mode = 'cube';
+  player.y = GROUND_Y - player.size; player.vy = 0; player.jumps = 0;
+  boss.x = W - 95; boss.baseY = 130; boss.y = 130;
+  boss.hp = boss.maxHp; boss.t = 0; boss.atkTimer = 0; boss.pattern = 0; boss.flash = 0;
+  boss.intro = 100;   // brief "BOSS FIGHT" warning before it attacks
+  document.getElementById('progressWrap').classList.add('hidden');
+  document.getElementById('bossWrap').classList.remove('hidden');
+}
+
+function doBossAttack(kind) {
+  boss.flash = 8;
+  if (kind === 0) {
+    // low fireballs rolling along the ground — JUMP over them
+    for (let i = 0; i < 2; i++)
+      bossProjectiles.push({ x: boss.x - 40, y: GROUND_Y - 22 - i * 30, vx: -(speed + 2.5), vy: 0, r: 15 });
+  } else if (kind === 1) {
+    // a wave of ground spikes marching in — JUMP over them
+    for (let i = 0; i < 3; i++) obstacles.push({ kind: 'spike', x: W + i * 40, w: 34, h: 44 });
+  } else {
+    // a HIGH fireball at head height — do NOT jump, stay grounded
+    bossProjectiles.push({ x: boss.x - 40, y: GROUND_Y - 118, vx: -(speed + 2), vy: 0, r: 16, high: true });
+  }
+}
+
+function updateBoss() {
+  boss.t++;
+  boss.y = boss.baseY + Math.sin(boss.t * 0.045) * 42;
+  if (boss.flash > 0) boss.flash--;
+
+  if (boss.intro > 0) {
+    boss.intro--;
+  } else {
+    boss.hp--;                                   // HP drains only once the fight is on
+    boss.atkTimer--;
+    if (boss.atkTimer <= 0) {
+      doBossAttack(boss.pattern % 3);
+      boss.pattern++;
+      boss.atkTimer = 68 + Math.random() * 42;   // pace between attacks
+    }
+  }
+  document.getElementById('bossHp').style.width = Math.max(0, boss.hp / boss.maxHp * 100) + '%';
+
+  // move & collide boss projectiles
+  const px = player.x, py = player.y, ps = player.size;
+  const pcx = px + ps / 2, pcy = py + ps / 2;
+  for (const p of bossProjectiles) {
+    p.x += p.vx; p.y += p.vy;
+    const dx = pcx - p.x, dy = pcy - p.y, rr = ps / 2 + p.r - 6;
+    if (dx * dx + dy * dy < rr * rr) { die(); return; }
+  }
+  bossProjectiles = bossProjectiles.filter(p => p.x + p.r > -10);
+
+  if (boss.hp <= 0) win(true);
 }
 
 // ---- Spawning ----
@@ -764,15 +1053,20 @@ function spawnObstacle() {
   }
 }
 
-// Ship section: top & bottom bars with a gap to fly through.
+// Ship section: pillars rise from the FLOOR that you fly OVER.
+// The ceiling is always safe (no hanging blocks), so flying up never kills you.
 function spawnShipGate() {
-  const top = SHIP_TOP, floor = GROUND_Y;
-  const usable = floor - top;
-  const gapH = 150;
-  const gapTop = top + 25 + Math.random() * (usable - gapH - 50);
+  const floor = GROUND_Y;
+  const usable = floor - SHIP_TOP;
+  const maxH = usable * 0.68;              // always leaves a safe corridor near the ceiling
   const w = 46;
-  obstacles.push({ kind: 'bar', x: W, w, y: top, h: gapTop - top });                 // hangs from ceiling
-  obstacles.push({ kind: 'bar', x: W, w, y: gapTop + gapH, h: floor - (gapTop + gapH) }); // rises from floor
+  const h = 70 + Math.random() * (maxH - 70);
+  obstacles.push({ kind: 'bar', x: W, w, y: floor - h, h });
+  // sometimes a second, staggered pillar for rhythm
+  if (Math.random() < 0.4) {
+    const h2 = 70 + Math.random() * (maxH - 70);
+    obstacles.push({ kind: 'bar', x: W + w + 70, w, y: floor - h2, h: h2 });
+  }
 }
 
 // Spawn coins (common) or a star (rare) at reachable heights.
@@ -816,14 +1110,17 @@ function update() {
   document.getElementById('progressBar').style.width =
     Math.min(100, (score / GOAL) * 100) + '%';
 
-  // reached the finish line -> level complete
-  if (score >= GOAL) { win(); return; }
+  // demon: a boss flies in near the end instead of a plain distance finish
+  if (currentLevel === 'demon' && !bossActive && score >= BOSS_SCORE) startBoss();
+
+  // reached the finish line -> level complete (boss levels finish by defeating the boss)
+  if (!bossActive && score >= GOAL) { win(); return; }
 
   // gradually speed up (capped so the finish stays fair)
   speed = baseSpeed + Math.min(frame, 900) / 900;
 
-  // stop spawning hazards in the final stretch so the finish is clean
-  const spawning = score < GOAL - 8;
+  // no normal spawns during the final stretch or the boss fight
+  const spawning = score < GOAL - 8 && !bossActive;
 
   // player physics
   if (player.mode === 'ship') {
@@ -873,14 +1170,15 @@ function update() {
   }
 
   // spawn obstacles (shape depends on the current section)
+  const gap = theme.spawnGap || 1;   // per-level difficulty spacing
   spawnTimer--;
   if (spawning && spawnTimer <= 0) {
     if (sectionMode === 'ship') {
       spawnShipGate();
-      spawnTimer = Math.max(50, 80 - frame / 50) + Math.random() * 30;
+      spawnTimer = (Math.max(50, 80 - frame / 50) + Math.random() * 30) * gap;
     } else {
       spawnObstacle();
-      spawnTimer = Math.max(45, 90 - frame / 40) + Math.random() * 40;
+      spawnTimer = (Math.max(45, 90 - frame / 40) + Math.random() * 40) * gap;
     }
   }
 
@@ -942,6 +1240,9 @@ function update() {
   }
   obstacles = obstacles.filter(o => o.x + o.w > -10);
 
+  // boss fight logic (attacks, projectiles, HP drain, win/lose)
+  if (bossActive) { updateBoss(); if (state !== 'playing') return; }
+
   // collectibles: move, spin, and check pickup
   const pcx = px + ps / 2, pcy = py + ps / 2;
   for (let c of collectibles) {
@@ -951,8 +1252,8 @@ function update() {
       const dx = pcx - c.x, dy = pcy - c.y;
       if (dx * dx + dy * dy < (ps / 2 + c.r) * (ps / 2 + c.r)) {
         c.collected = true;
-        if (c.kind === 'star') { starsCollected++; document.getElementById('starsC').textContent = starsCollected; }
-        else { coins++; document.getElementById('coins').textContent = coins; }
+        if (c.kind === 'star') { starsCollected++; document.getElementById('starsC').textContent = starsCollected; sfxStar(); }
+        else { coins++; document.getElementById('coins').textContent = coins; sfxCoin(); }
         // sparkle burst
         const col = c.kind === 'star' ? '#ffd84d' : '#ffcf3f';
         for (let i = 0; i < 12; i++) {
@@ -1084,54 +1385,84 @@ function drawGround() {
   ctx.shadowBlur = 0;
 }
 
+// Build a centered path for the given icon shape with "radius" r.
+function traceShape(shape, r) {
+  ctx.beginPath();
+  if (shape === 'circle') { ctx.arc(0, 0, r, 0, Math.PI * 2); return; }
+  if (shape === 'square') { ctx.rect(-r, -r, 2 * r, 2 * r); return; }
+  if (shape === 'star') {
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      const rr = i % 2 === 0 ? r : r * 0.45;
+      const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+      if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.closePath(); return;
+  }
+  const n = { triangle: 3, diamond: 4, pentagon: 5, hexagon: 6, octagon: 8 }[shape] || 4;
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + i * 2 * Math.PI / n;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+
 function drawPlayer() {
-  const s = player.size;
-  // trail (uses the chosen skin's main color)
+  const s = player.size, r = s / 2;
+  const shape = currentSkin.shape || 'square';
+
+  // trail — faint copies of the icon in its own shape
   for (let i = 0; i < player.trail.length; i++) {
     const t = player.trail[i];
-    ctx.globalAlpha = (i / player.trail.length) * 0.35;
+    ctx.save();
+    ctx.globalAlpha = (i / player.trail.length) * 0.32;
+    ctx.translate(t.x + r, t.y + r);
+    ctx.rotate(t.rot || 0);
     ctx.fillStyle = currentSkin.colors[1];
-    ctx.fillRect(t.x, t.y, s, s);
+    traceShape(shape, r);
+    ctx.fill();
+    ctx.restore();
   }
-  ctx.globalAlpha = 1;
 
   ctx.save();
-  ctx.translate(player.x + s/2, player.y + s/2);
+  ctx.translate(player.x + r, player.y + r);
   ctx.rotate(player.rot);
-  // glow (from the chosen skin)
+
+  // ship mode: nose cone + fin behind the shape so it reads as a rocket
+  if (player.mode === 'ship') {
+    ctx.fillStyle = currentSkin.glow;
+    ctx.beginPath();
+    ctx.moveTo(r, -r/2); ctx.lineTo(r + s/3, 0); ctx.lineTo(r, r/2);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r, r); ctx.lineTo(-r - s/4, r + s/5); ctx.lineTo(-r, r/3);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // body — the selected color gradient, in the icon's shape
   ctx.shadowColor = currentSkin.glow;
   ctx.shadowBlur = 20;
-  // body — the selected cube color
-  const g = ctx.createLinearGradient(-s/2, -s/2, s/2, s/2);
+  const g = ctx.createLinearGradient(-r, -r, r, r);
   g.addColorStop(0, currentSkin.colors[0]);
   g.addColorStop(1, currentSkin.colors[1]);
   ctx.fillStyle = g;
-  ctx.fillRect(-s/2, -s/2, s, s);
+  traceShape(shape, r);
+  ctx.fill();
   ctx.shadowBlur = 0;
-  // inner square
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
-  ctx.fillRect(-s/6, -s/6, s/3, s/3);
-  // border
+
+  // white border
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 3;
-  ctx.strokeRect(-s/2, -s/2, s, s);
+  ctx.lineJoin = 'round';
+  traceShape(shape, r);
+  ctx.stroke();
 
-  // ship mode: add a little nose cone + fin so it reads as a rocket
-  if (player.mode === 'ship') {
-    ctx.fillStyle = currentSkin.glow;
-    ctx.beginPath();                       // nose at the front (right)
-    ctx.moveTo(s/2, -s/4);
-    ctx.lineTo(s/2 + s/3, 0);
-    ctx.lineTo(s/2, s/4);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();                       // tail fin (left)
-    ctx.moveTo(-s/2, s/2);
-    ctx.lineTo(-s/2 - s/4, s/2 + s/5);
-    ctx.lineTo(-s/2, s/6);
-    ctx.closePath();
-    ctx.fill();
-  }
+  // inner detail — a smaller concentric copy of the shape
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  traceShape(shape, r * 0.34);
+  ctx.fill();
+
   ctx.restore();
 }
 
@@ -1253,12 +1584,64 @@ function drawParticles() {
   ctx.globalAlpha = 1;
 }
 
+function drawBoss() {
+  // fireball projectiles
+  for (const p of bossProjectiles) {
+    ctx.save();
+    ctx.shadowColor = '#ff7a1a'; ctx.shadowBlur = 16;
+    const grd = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, p.r);
+    grd.addColorStop(0, '#fff3c4'); grd.addColorStop(0.5, '#ffb300'); grd.addColorStop(1, '#ff3d3d');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  if (!bossActive) return;
+
+  const R = 54;
+  ctx.save();
+  ctx.translate(boss.x, boss.y);
+  // head
+  ctx.shadowColor = '#ff3d3d'; ctx.shadowBlur = 26;
+  ctx.fillStyle = boss.flash > 0 ? '#ffffff' : '#8a0f1a';
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) { const a = -Math.PI/2 + i*Math.PI/3; const x=Math.cos(a)*R, y=Math.sin(a)*R; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+  ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  // horns
+  ctx.fillStyle = '#5a0810';
+  ctx.beginPath(); ctx.moveTo(-R*0.6,-R*0.45); ctx.lineTo(-R*0.95,-R*1.15); ctx.lineTo(-R*0.25,-R*0.6); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(R*0.6,-R*0.45); ctx.lineTo(R*0.95,-R*1.15); ctx.lineTo(R*0.25,-R*0.6); ctx.closePath(); ctx.fill();
+  // eyes
+  ctx.fillStyle = '#ffe14d'; ctx.shadowColor = '#ffd84d'; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.arc(-18,-6,9,0,Math.PI*2); ctx.arc(18,-6,9,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0; ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(-16,-4,4,0,Math.PI*2); ctx.arc(20,-4,4,0,Math.PI*2); ctx.fill();
+  // jagged mouth
+  ctx.fillStyle = '#2a0206';
+  ctx.beginPath(); ctx.moveTo(-26,18);
+  for (let i = 0; i <= 6; i++) ctx.lineTo(-26 + i*9, 18 + ((i%2)?11:0));
+  ctx.lineTo(28,18); ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // intro warning banner
+  if (boss.intro > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.55 + 0.45 * Math.abs(Math.sin(boss.t * 0.25));
+    ctx.fillStyle = '#ff3d3d';
+    ctx.font = 'bold 46px Segoe UI'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 22;
+    ctx.fillText('⚠ BOSS FIGHT ⚠', W / 2, H / 2 - 40);
+    ctx.restore();
+  }
+}
+
 function loop() {
   update();
   drawBackground();
   drawObstacles();
   drawCollectibles();
   drawGround();
+  drawBoss();
   if (state !== 'dead') drawPlayer();
   drawParticles();
   requestAnimationFrame(loop);
