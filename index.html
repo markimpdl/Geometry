@@ -186,6 +186,22 @@
   }
   .unlock-msg { margin-top: 10px; color: #ffd84d; font-weight: 700; min-height: 1.2em; }
 
+  .mini-btn {
+    margin-top: 14px; background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.3); color: #fff;
+    padding: 8px 18px; border-radius: 24px; font-weight: 700; cursor: pointer;
+    font-size: .85rem; transition: transform .12s ease;
+  }
+  .mini-btn:hover { transform: scale(1.05); }
+  .overlay input {
+    width: min(90%, 340px); margin-top: 8px; text-align: center;
+    background: rgba(0,0,0,0.4); color: #fff;
+    border: 2px solid rgba(255,255,255,0.35); border-radius: 12px;
+    padding: 12px 8px; font-family: monospace; font-weight: 800;
+    font-size: 1.25rem; letter-spacing: 2px;
+  }
+  .overlay input:focus { outline: none; border-color: #5a82ff; }
+
   .wallet {
     margin-top: 16px; font-weight: 800; font-size: 1.1rem;
     background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.25);
@@ -387,6 +403,8 @@
       <div class="skins" id="skinRow"></div>
     </div>
 
+    <button class="mini-btn" id="transferBtn">📤 Transfer Data</button>
+
     <p class="hint">SPACE / CLICK / TAP to jump · <b>hold</b> to fly in 🚀 ship · 🔃 flips gravity · P to pause</p>
   </div>
 
@@ -426,6 +444,18 @@
     <div class="shop-grid" id="shopGrid"></div>
     <p class="unlock-msg" id="shopMsg"></p>
     <button class="btn" id="shopCloseBtn" style="background:rgba(255,255,255,0.15);box-shadow:none;">← BACK</button>
+  </div>
+
+  <div class="overlay hidden" id="transferScreen">
+    <h1 style="font-size:clamp(1.4rem,5vw,2.2rem)">📤 TRANSFER DATA</h1>
+    <p class="hint">Your random 15-digit code — enter it on another device to copy your levels, icons, ships, songs &amp; coins/stars. (Best scores stay per-device.)</p>
+    <input id="transferCode" readonly inputmode="numeric" maxlength="15">
+    <button class="btn" id="copyBtn">📋 Copy Code</button>
+    <p class="hint" style="margin-top:14px">Enter a 15-digit code and import it:</p>
+    <input id="transferInput" inputmode="numeric" maxlength="15" placeholder="15-digit code…">
+    <button class="btn" id="importBtn">📥 Import</button>
+    <p class="unlock-msg" id="transferMsg"></p>
+    <button class="btn" id="transferCloseBtn" style="background:rgba(255,255,255,0.15);box-shadow:none;">← BACK</button>
   </div>
 </div>
 
@@ -800,6 +830,111 @@ function openShop() {
 function closeShop() {
   document.getElementById('shopScreen').classList.add('hidden');
 }
+
+// ---- Transfer data: a random-looking 15-digit code ----
+// Your save is packed (mixed-radix, BigInt) then scrambled by a reversible modular
+// multiply, so the code looks like a random number but decodes exactly.
+// Carries: levels beaten, demon unlock, owned icons/ships/songs, equipped items,
+// and your coin/star balance. (Best scores are too big to also fit in 15 digits.)
+const TX_LEVELS = ['electro', 'water', 'toxic', 'demon', 'nothing'];
+const TX_ICONS  = ['volt', 'aqua', 'gold', 'inferno', 'shadow', 'toxic'];
+const TX_SHIPS  = ['jet', 'ufo', 'glider'];
+const TX_SONGS  = ['hyper', 'chill', 'epic'];
+const TX_COIN_CAP = 10000, TX_STAR_CAP = 256;
+const TX_CHK = 11n;                // checksum modulus — rejects mistyped/random codes
+const TX_MOD = 10n ** 15n;
+const TX_KEY = 748219386492317n;   // coprime to 10^15 (odd, not /5) → a bijection mod 10^15
+function txModInverse(a, m) {       // extended Euclid
+  let [old_r, r] = [((a % m) + m) % m, m];
+  let [old_s, s] = [1n, 0n];
+  while (r !== 0n) { const q = old_r / r; [old_r, r] = [r, old_r - q * r]; [old_s, s] = [s, old_s - q * s]; }
+  return ((old_s % m) + m) % m;
+}
+const TX_KINV = txModInverse(TX_KEY, TX_MOD);
+
+function encodeSave() {
+  let n = 0n, mul = 1n;
+  const put = (val, range) => { n += BigInt(((val % range) + range) % range) * mul; mul *= BigInt(range); };
+  TX_LEVELS.forEach(k => put(progress.completed[k] ? 1 : 0, 2));
+  put(progress.demonUnlocked ? 1 : 0, 2);
+  TX_ICONS.forEach(id => put(progress.owned.indexOf(id) !== -1 ? 1 : 0, 2));
+  TX_SHIPS.forEach(id => put(progress.ownedShips.indexOf(id) !== -1 ? 1 : 0, 2));
+  TX_SONGS.forEach(id => put(progress.ownedSongs.indexOf(id) !== -1 ? 1 : 0, 2));
+  put(Math.max(0, SKINS.findIndex(s => s.id === progress.skin)), 8);
+  put(Math.max(0, SHIPS.findIndex(s => s.id === progress.ship)), 4);
+  put(Math.max(0, SONGS.findIndex(s => s.id === progress.song)), 4);
+  put(Math.min(progress.wallet.coins | 0, TX_COIN_CAP - 1), TX_COIN_CAP);
+  put(Math.min(progress.wallet.stars | 0, TX_STAR_CAP - 1), TX_STAR_CAP);
+  const combined = n * TX_CHK + (n % TX_CHK);      // append checksum
+  const scrambled = (combined * TX_KEY) % TX_MOD;  // → random-looking number
+  return scrambled.toString().padStart(15, '0');
+}
+function applyCode(code) {
+  const digits = code.replace(/\D/g, '');
+  if (!digits.length || !/^\d+$/.test(digits)) throw new Error('bad');
+  const combined = ((BigInt(digits) % TX_MOD) * TX_KINV) % TX_MOD;   // un-scramble
+  let n = combined / TX_CHK;
+  if (n % TX_CHK !== combined % TX_CHK) throw new Error('bad');       // checksum mismatch
+  const take = (range) => { const r = BigInt(range); const v = Number(n % r); n /= r; return v; };
+  // unpack into a temp first so we can validate before touching progress
+  const comp = {}, ic = [], sh = [], so = [];
+  TX_LEVELS.forEach(k => { comp[k] = !!take(2); });
+  const demon = !!take(2);
+  TX_ICONS.forEach(id => { if (take(2)) ic.push(id); });
+  TX_SHIPS.forEach(id => { if (take(2)) sh.push(id); });
+  TX_SONGS.forEach(id => { if (take(2)) so.push(id); });
+  const si = take(8), shi = take(4), soi = take(4);
+  const coins = take(TX_COIN_CAP), stars = take(TX_STAR_CAP);
+  if (n !== 0n) throw new Error('bad');   // leftover must be zero for a genuine code
+  // merge into progress
+  TX_LEVELS.forEach(k => { if (comp[k]) progress.completed[k] = true; });
+  if (demon) progress.demonUnlocked = true;
+  ic.forEach(id => { if (progress.owned.indexOf(id) === -1) progress.owned.push(id); });
+  sh.forEach(id => { if (progress.ownedShips.indexOf(id) === -1) progress.ownedShips.push(id); });
+  so.forEach(id => { if (progress.ownedSongs.indexOf(id) === -1) progress.ownedSongs.push(id); });
+  if (SKINS[si]) progress.skin = SKINS[si].id;
+  if (SHIPS[shi]) progress.ship = SHIPS[shi].id;
+  if (SONGS[soi]) progress.song = SONGS[soi].id;
+  progress.wallet.coins = Math.max(progress.wallet.coins, coins);   // never lose local coins
+  progress.wallet.stars = Math.max(progress.wallet.stars, stars);
+}
+
+function openTransfer() {
+  let code = '';
+  try { code = encodeSave(); } catch (e) { code = ''; }
+  document.getElementById('transferCode').value = code;
+  document.getElementById('transferInput').value = '';
+  document.getElementById('transferMsg').textContent = '';
+  document.getElementById('transferScreen').classList.remove('hidden');
+}
+function closeTransfer() {
+  document.getElementById('transferScreen').classList.add('hidden');
+}
+function copyTransfer() {
+  const t = document.getElementById('transferCode');
+  const msg = document.getElementById('transferMsg');
+  t.select(); t.setSelectionRange(0, 99999);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t.value);
+    else document.execCommand('copy');
+    msg.textContent = 'Copied to clipboard! 📋';
+  } catch (e) { msg.textContent = 'Select the code and copy it manually.'; }
+}
+function importTransfer() {
+  const msg = document.getElementById('transferMsg');
+  const raw = document.getElementById('transferInput').value.trim();
+  if (!raw) { msg.textContent = 'Enter a 15-digit code first.'; return; }
+  try {
+    applyCode(raw);                 // merges unlocks/equipped/wallet into your progress
+    currentSkin = SKINS.find(s => s.id === progress.skin) || SKINS[0];
+    currentShip = SHIPS.find(s => s.id === progress.ship) || SHIPS[0];
+    saveProgress();
+    refreshMenu();
+    msg.textContent = 'Imported! ✅ Progress loaded.';
+  } catch (e) {
+    msg.textContent = '❌ Invalid code — enter the 15-digit number.';
+  }
+}
 function setShopTab(tab) {
   shopTab = tab;
   document.getElementById('tabIcons').classList.toggle('active', tab === 'icons');
@@ -1111,6 +1246,10 @@ const muteBtn = document.getElementById('muteBtn');
 muteBtn.textContent = muted ? '🔇' : '🔊';
 muteBtn.onclick = (e) => { e.stopPropagation(); initAudio(); toggleMute(); };
 document.getElementById('pauseBtn').onclick = (e) => { e.stopPropagation(); togglePause(); };
+document.getElementById('transferBtn').onclick = openTransfer;
+document.getElementById('copyBtn').onclick = copyTransfer;
+document.getElementById('importBtn').onclick = importTransfer;
+document.getElementById('transferCloseBtn').onclick = closeTransfer;
 
 function hideAllScreens() {
   document.getElementById('startScreen').classList.add('hidden');
@@ -1118,6 +1257,7 @@ function hideAllScreens() {
   document.getElementById('pauseScreen').classList.add('hidden');
   document.getElementById('winScreen').classList.add('hidden');
   document.getElementById('shopScreen').classList.add('hidden');
+  document.getElementById('transferScreen').classList.add('hidden');
 }
 
 function startGame(levelKey) {
