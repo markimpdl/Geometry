@@ -1,6 +1,6 @@
 // Service worker for Geometry Rush PWA.
 // Bump CACHE_VERSION whenever you change index.html or assets so clients update.
-const CACHE_VERSION = 'geo-rush-v31';
+const CACHE_VERSION = 'geo-rush-v36';
 
 // Relative paths resolve against this file's location (the app folder),
 // which is what makes GitHub Pages subpath hosting work.
