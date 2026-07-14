@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Geometry Rush</title>
 
 <!-- PWA -->
@@ -25,6 +25,9 @@
     align-items: center;
     justify-content: center;
     user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;      /* no pinch-zoom / double-tap zoom */
+    overscroll-behavior: none;
   }
   #wrap {
     position: relative;
@@ -36,6 +39,46 @@
     overflow: hidden;
   }
   canvas { display: block; width: 100%; height: 100%; }
+
+  /* On phones in landscape, fill the whole screen edge-to-edge */
+  @media (max-width: 950px) and (orientation: landscape) {
+    #wrap {
+      max-width: 100vw; width: 100vw; height: 100vh; height: 100dvh;
+      aspect-ratio: auto; border-radius: 0; box-shadow: none;
+    }
+  }
+
+  /* Ask the player to rotate when the phone is held in portrait */
+  #rotateNotice { display: none; }
+  @media (orientation: portrait) and (max-width: 950px) {
+    #wrap { display: none; }
+    #rotateNotice {
+      display: flex; position: fixed; inset: 0; z-index: 9999;
+      background: #0d0d1a; color: #fff; text-align: center;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    #rotateNotice .rot-emoji { font-size: 4rem; animation: rot 1.6s ease-in-out infinite; }
+    #rotateNotice h2 { font-size: 1.6rem; margin: 12px 0 6px; letter-spacing: 1px; }
+    #rotateNotice p { opacity: .7; }
+  }
+  @keyframes rot { 0%,100% { transform: rotate(-12deg); } 50% { transform: rotate(78deg); } }
+
+  /* Compact the menus on short (phone-landscape) screens */
+  @media (max-height: 520px) {
+    .overlay h1 { font-size: 1.7rem; margin-bottom: 2px; }
+    .overlay p { font-size: .8rem; margin: 2px 0; }
+    .levels { gap: 8px; margin-top: 8px; }
+    .level-card { padding: 8px 12px; min-width: 108px; }
+    .level-card .lv-icon { font-size: 1.5rem; }
+    .level-card .lv-name { font-size: .85rem; margin: 3px 0 1px; }
+    .level-card .lv-best, .level-card .lv-req { font-size: .65rem; }
+    .lv-diff { font-size: .6rem; padding: 2px 8px; margin: 1px 0 3px; }
+    .wallet { margin-top: 8px; padding: 5px 12px; font-size: .95rem; }
+    .skins-wrap { margin-top: 10px; }
+    .skins-wrap .lbl { font-size: .65rem; margin-bottom: 5px; }
+    .skin { width: 38px; height: 38px; }
+    .hint { margin-top: 8px; font-size: .72rem; }
+  }
 
   .overlay {
     position: absolute;
@@ -383,6 +426,14 @@
     <div class="shop-grid" id="shopGrid"></div>
     <p class="unlock-msg" id="shopMsg"></p>
     <button class="btn" id="shopCloseBtn" style="background:rgba(255,255,255,0.15);box-shadow:none;">← BACK</button>
+  </div>
+</div>
+
+<div id="rotateNotice">
+  <div>
+    <div class="rot-emoji">📱</div>
+    <h2>Rotate your device</h2>
+    <p>Geometry Rush plays in landscape mode</p>
   </div>
 </div>
 
@@ -1086,6 +1137,14 @@ function startGame(levelKey) {
   document.getElementById('wrap').classList.add('in-game');
   hideAllScreens();
   startMusic();
+  tryLockLandscape();
+}
+
+// Best-effort: ask the browser to lock landscape (works on installed PWA / fullscreen Android)
+function tryLockLandscape() {
+  try {
+    if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+  } catch (e) { /* not supported — the rotate overlay handles it */ }
 }
 
 function showLevelSelect() {
@@ -2047,6 +2106,14 @@ function drawDarkness() {
   ctx.restore();
 }
 loop();
+
+// Auto-pause if the phone is rotated to portrait mid-run (the rotate overlay covers the screen)
+try {
+  const portraitMQ = window.matchMedia('(orientation: portrait)');
+  const onOrient = (e) => { if (e.matches && state === 'playing') togglePause(); };
+  if (portraitMQ.addEventListener) portraitMQ.addEventListener('change', onOrient);
+  else if (portraitMQ.addListener) portraitMQ.addListener(onOrient);
+} catch (e) { /* ignore */ }
 
 // ---- PWA: register the service worker (skips file:// where it isn't allowed) ----
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
