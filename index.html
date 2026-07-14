@@ -43,13 +43,14 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: safe center;   /* never clip content that overflows */
     text-align: center;
     color: #fff;
     background: rgba(10, 10, 30, 0.72);
     backdrop-filter: blur(3px);
     transition: opacity .25s ease;
     padding: 20px;
+    overflow-y: auto;               /* scroll when content is taller than the frame */
   }
   .overlay.hidden { opacity: 0; pointer-events: none; }
   .overlay h1 {
@@ -95,12 +96,17 @@
     display: inline-block; font-size: .72rem; font-weight: 800; letter-spacing: 1px;
     padding: 3px 10px; border-radius: 20px; margin: 2px 0 6px;
   }
-  .diff-easy  { background: rgba(90,223,158,0.22);  color: #7dffc0; border: 1px solid #5adf9e; }
-  .diff-hard  { background: rgba(255,140,60,0.22);  color: #ffb066; border: 1px solid #ff8c3c; }
-  .diff-demon { background: rgba(255,61,61,0.22);   color: #ff8a8a; border: 1px solid #ff3d3d; }
+  .diff-easy   { background: rgba(90,223,158,0.22);  color: #7dffc0; border: 1px solid #5adf9e; }
+  .diff-hard   { background: rgba(255,140,60,0.22);  color: #ffb066; border: 1px solid #ff8c3c; }
+  .diff-harder { background: rgba(255,90,60,0.22);   color: #ff9d7a; border: 1px solid #ff5a3c; }
+  .diff-insane { background: rgba(199,107,255,0.22); color: #e0aaff; border: 1px solid #c86bff; }
+  .diff-demon  { background: rgba(255,61,61,0.22);   color: #ff8a8a; border: 1px solid #ff3d3d; }
+  .diff-none   { background: rgba(150,155,170,0.2);  color: #c4c8d4; border: 1px solid #6a6f80; }
   .level-card.electro:hover { border-color: #4de0ff; box-shadow: 0 0 22px rgba(77,224,255,.5); }
   .level-card.water:hover   { border-color: #4dd0ff; box-shadow: 0 0 22px rgba(77,208,255,.5); }
+  .level-card.toxic:hover   { border-color: #b6ff2b; box-shadow: 0 0 22px rgba(182,255,43,.5); }
   .level-card.demon:hover   { border-color: #ff3d3d; box-shadow: 0 0 22px rgba(255,61,61,.55); }
+  .level-card.nothing:hover { border-color: #9aa0b0; box-shadow: 0 0 22px rgba(154,160,176,.4); }
   .level-card.locked { opacity: .55; cursor: not-allowed; filter: grayscale(.6); }
   .level-card.locked:hover { transform: none; background: rgba(255,255,255,0.08); box-shadow: none; }
   .level-card .lv-req { font-size: .72rem; margin-top: 4px; color: #ffd84d; }
@@ -173,6 +179,16 @@
   .shop-buy:hover { transform: scale(1.07); }
   .shop-tag { font-weight: 700; font-size: .85rem; padding: 6px 0; }
   .equipped-tag { color: #5adf9e; }
+  .shop-tabs { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+  .shop-tab {
+    background: rgba(255,255,255,0.1); color: #fff;
+    border: 2px solid rgba(255,255,255,0.25); border-radius: 22px;
+    padding: 7px 18px; font-weight: 800; letter-spacing: 1px; cursor: pointer;
+    transition: all .12s ease;
+  }
+  .shop-tab.active { background: linear-gradient(135deg, #5a82ff, #ff4d9d); border-color: #fff; }
+  .shop-tab:hover { transform: scale(1.05); }
+  .ship-swatch { display: flex; align-items: center; justify-content: center; font-size: 2rem; }
 
   #hud {
     position: absolute;
@@ -244,6 +260,29 @@
     transition: transform .12s ease;
   }
   #muteBtn:hover { transform: scale(1.1); }
+
+  #pauseBtn {
+    position: absolute; bottom: 12px; right: 60px;
+    z-index: 6;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #fff; font-size: 1rem;
+    width: 40px; height: 40px; border-radius: 50%;
+    cursor: pointer; line-height: 1;
+    transition: transform .12s ease, opacity .2s ease;
+  }
+  #pauseBtn:hover { transform: scale(1.1); }
+  /* only show the pause button while a level is running */
+  #wrap:not(.in-game) #pauseBtn { opacity: 0; pointer-events: none; }
+
+  #versionTag {
+    position: absolute; bottom: 10px; left: 12px;
+    z-index: 6;
+    color: rgba(255,255,255,0.7);
+    font-size: 1.3rem; font-weight: 800; letter-spacing: 1px;
+    text-shadow: 0 1px 3px rgba(0,0,0,.6);
+    pointer-events: none; user-select: none;
+  }
 </style>
 </head>
 <body>
@@ -258,6 +297,8 @@
   <div id="progressWrap"><div id="progressBar"></div><div id="progressFlag">🏁</div></div>
   <div id="bossWrap" class="hidden"><div class="boss-label">👿 DEMON BOSS</div><div id="bossHpTrack"><div id="bossHp"></div></div></div>
   <button id="muteBtn" title="Mute / unmute music">🔊</button>
+  <button id="pauseBtn" title="Pause">⏸</button>
+  <div id="versionTag">v12.02</div>
 
   <div class="overlay" id="startScreen">
     <h1>GEOMETRY RUSH</h1>
@@ -275,12 +316,24 @@
         <div class="lv-diff diff-easy">🟢 EASY</div>
         <div class="lv-best">Best: <span id="best-water">0</span></div>
       </div>
+      <div class="level-card toxic" data-level="toxic">
+        <div class="lv-icon">😱</div>
+        <div class="lv-name">THE NIGHTMARES</div>
+        <div class="lv-diff diff-insane">🟣 INSANE</div>
+        <div class="lv-best">Best: <span id="best-toxic">0</span></div>
+      </div>
       <div class="level-card demon" data-level="demon">
         <div class="lv-icon">👿</div>
-        <div class="lv-name">DEMON</div>
-        <div class="lv-diff diff-demon">👿 EASY DEMON</div>
+        <div class="lv-name">EVERYEND</div>
+        <div class="lv-diff diff-harder">🟠 HARDER</div>
         <div class="lv-best">Best: <span id="best-demon">0</span></div>
         <div class="lv-req" id="demonReq">🔒 Needs 6🪙 &amp; 2⭐</div>
+      </div>
+      <div class="level-card nothing" data-level="nothing">
+        <div class="lv-icon">⬜</div>
+        <div class="lv-name" style="font-size:.72rem;word-break:break-all">732891384743822(17218947328)</div>
+        <div class="lv-diff diff-none">⚪ NOTHING</div>
+        <div class="lv-best">Best: <span id="best-nothing">0</span></div>
       </div>
     </div>
 
@@ -291,7 +344,7 @@
       <div class="skins" id="skinRow"></div>
     </div>
 
-    <p class="hint">SPACE / CLICK / TAP to jump · double-jump in mid-air · <b>hold</b> to fly in 🚀 ship mode · P to pause</p>
+    <p class="hint">SPACE / CLICK / TAP to jump · <b>hold</b> to fly in 🚀 ship · 🔃 flips gravity · P to pause</p>
   </div>
 
   <div class="overlay hidden" id="deathScreen">
@@ -306,6 +359,7 @@
   <div class="overlay hidden" id="pauseScreen">
     <h1>PAUSED</h1>
     <button class="btn" id="resumeBtn">▶ RESUME</button>
+    <button class="btn" id="pauseMenuBtn" style="background:rgba(255,255,255,0.15);box-shadow:none;">☰ MAIN MENU</button>
   </div>
 
   <div class="overlay hidden" id="winScreen">
@@ -318,9 +372,14 @@
   </div>
 
   <div class="overlay hidden" id="shopScreen">
-    <h1 style="font-size:clamp(1.6rem,5vw,2.6rem)">🛒 ICON SHOP</h1>
+    <h1 style="font-size:clamp(1.6rem,5vw,2.6rem)">🛒 SHOP</h1>
     <div class="wallet">💰 <span class="wallet-coins">0</span> 🪙&nbsp;&nbsp;<span class="wallet-stars">0</span> ⭐</div>
-    <p class="hint" style="margin-top:6px">Each icon costs <b>10 🪙</b> or <b>1 ⭐</b>. Collect them by finishing levels!</p>
+    <div class="shop-tabs">
+      <button class="shop-tab active" id="tabIcons">🟦 ICONS</button>
+      <button class="shop-tab" id="tabShips">🚀 SHIPS</button>
+      <button class="shop-tab" id="tabSongs">🎵 SONGS</button>
+    </div>
+    <p class="hint" style="margin-top:4px">Each item costs <b>10 🪙</b> or <b>1 ⭐</b>. Collect them by playing!</p>
     <div class="shop-grid" id="shopGrid"></div>
     <p class="unlock-msg" id="shopMsg"></p>
     <button class="btn" id="shopCloseBtn" style="background:rgba(255,255,255,0.15);box-shadow:none;">← BACK</button>
@@ -341,12 +400,23 @@ const GOAL = 1000;   // reach this score to finish the level
 // Demon boss fight
 const BOSS_SCORE = 780;      // demon: boss flies in at this score instead of a distance finish
 const BOSS_DURATION = 1350;  // frames of survival to defeat it (~22s)
+const BLINKY_SCORE = 30;     // The Nightmares: Blinky appears almost immediately
+const BLINKY_DURATION = 1400;// ~23s survival
+
+// per-boss config
+const BOSSES = {
+  demon:  { name: 'DEMON BOSS',  emoji: '👿', duration: BOSS_DURATION,   verb: 'slayed the Demon Boss' },
+  blinky: { name: 'BLINKY',      emoji: '👻', duration: BLINKY_DURATION, verb: 'busted the ghost Blinky' }
+};
 
 // ship mode tuning
 const SHIP_TOP = 24;
 const SHIP_GRAV = 0.5;
 const SHIP_THRUST = 1.15;
 const SHIP_MAXV = 8.5;
+
+// ceiling the cube rests on when gravity is flipped
+const CEIL_Y = 24;
 
 // ---- Game state ----
 let state = 'start'; // start | playing | dead | paused | won
@@ -389,11 +459,29 @@ const LEVELS = {
       drums:[1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0]
     }
   },
+  toxic: {
+    name: 'THE NIGHTMARES',
+    diff: { label: 'INSANE', cls: 'insane' },
+    baseSpeed: 9.6,          // INSANE — harder than Electro, short of Demon
+    spawnGap: 0.74,          // tighter than Electro
+    sky: ['#183a1a', '#0f2a12', '#04100a'],
+    accent: '#b6ff2b',        // acid green glow
+    spike: '#8ee800', spikeStroke: '#e6ffb0',
+    block: '#3ad67a', blockStroke: '#d6ffe0',
+    player: ['#eaffb0', '#8ee800'], trail: '#b6ff2b',
+    bg: 'bolts',
+    music: {
+      bpm: 156, wave: 'sawtooth', bassWave: 'sawtooth', vol: 0.5,
+      bass: ['C2','','C2','G2','A#1','','A#1','F2','G1','','G1','D2','A1','','A1','E2'],
+      lead: ['C5','','D#5','F5','G5','F5','D#5','C5','A#4','','C5','D#5','F5','','D#5',''],
+      drums:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1]
+    }
+  },
   demon: {
-    name: 'DEMON',
-    diff: { label: 'EASY DEMON', cls: 'demon' },
-    baseSpeed: 9.0,          // EASY DEMON — still brutal, but the gentlest demon
-    spawnGap: 0.95,
+    name: 'EVERYEND',
+    diff: { label: 'HARDER', cls: 'harder' },
+    baseSpeed: 10.8,         // super-fast the whole way through
+    spawnGap: 0.66,          // relentless, tightly-packed obstacles
     sky: ['#3a0000', '#1a0008', '#000000'],
     accent: '#ff3d3d',
     spike: '#ff2d55', spikeStroke: '#ffd0d8',
@@ -408,6 +496,25 @@ const LEVELS = {
       bass: ['D2','D2','','D2','A#1','','D2','','D2','D2','','C2','A1','','A#1',''],
       lead: ['D5','','F5','','A5','G5','F5','','E5','','D5','','A4','C5','D5','A5'],
       drums:[1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,1]
+    }
+  },
+  nothing: {
+    name: '732891384743822(17218947328)',
+    diff: { label: 'NOTHING', cls: 'none' },
+    baseSpeed: 5.5,
+    spawnGap: 1,
+    empty: true,             // no obstacles, portals, coins or boss — literally nothing
+    sky: ['#22242c', '#15161c', '#0a0a0d'],
+    accent: '#6a6f80',
+    spike: '#6a6f80', spikeStroke: '#aab',
+    block: '#6a6f80', blockStroke: '#aab',
+    player: ['#e8e8f0', '#9aa0b0'], trail: '#6a6f80',
+    bg: 'bolts',
+    music: {
+      bpm: 80, wave: 'triangle', bassWave: 'triangle', vol: 0.35,
+      bass: ['A2','','','','E2','','','','F2','','','','C2','','',''],
+      lead: ['','','','','','','A4','','','','','','','','',''],
+      drums:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
     }
   }
 };
@@ -437,19 +544,58 @@ const SHAPE_CLIP = {
   octagon:  'polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%)'
 };
 // finishing a level grants its themed icon for free
-const COMPLETION_REWARD = { electro:'volt', water:'aqua', demon:'inferno' };
+const COMPLETION_REWARD = { electro:'volt', water:'aqua', toxic:'toxic', demon:'inferno' };
+
+// ---- Ship skins (different shapes for ship mode) — bought in the shop ----
+const SHIPS = [
+  { id:'rocket', name:'Rocket', shape:'rocket', emoji:'🚀', colors:['#dfefff','#4de0ff'], glow:'#4de0ff', free:true },
+  { id:'jet',    name:'Jet',    shape:'jet',    emoji:'✈️', colors:['#ffe1b0','#ff8c3c'], glow:'#ff8c3c' },
+  { id:'ufo',    name:'UFO',    shape:'ufo',    emoji:'🛸', colors:['#d6ffe0','#5adf9e'], glow:'#5adf9e' },
+  { id:'glider', name:'Glider', shape:'glider', emoji:'🪂', colors:['#ffd6f0','#ff4d9d'], glow:'#ff4d9d' }
+];
+
+// ---- Soundtracks — buy alternate music in the shop ----
+const SONGS = [
+  { id:'default', name:'Level Theme', emoji:'🎵', colors:['#cfe0ff','#5a82ff'], free:true, track:null },
+  { id:'hyper',   name:'Hyperdrive',  emoji:'⚡', colors:['#eaffef','#5adf9e'], track:{
+      bpm:168, wave:'sawtooth', bassWave:'sawtooth', vol:0.5,
+      bass:['E2','E2','E2','E2','C2','C2','C2','C2','D2','D2','D2','D2','G2','G2','G2','G2'],
+      lead:['E5','','E5','G5','A5','','G5','E5','D5','','E5','','B4','','','' ],
+      drums:[1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1] } },
+  { id:'chill',   name:'Moonlight',    emoji:'🌙', colors:['#dff6ff','#2ec4ff'], track:{
+      bpm:92, wave:'triangle', bassWave:'triangle', vol:0.45,
+      bass:['C3','','G2','','A2','','E3','','F2','','C3','','G2','','B2',''],
+      lead:['E4','','G4','','C5','','B4','','A4','','G4','','E4','','',''],
+      drums:[1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0] } },
+  { id:'epic',    name:'★ Anthem (BEST)', emoji:'👑', colors:['#fff3c4','#ffb300'], costCoins:30, costStars:3, track:{
+      bpm:150, wave:'square', bassWave:'sawtooth', vol:0.55,
+      bass:['A2','','A2','','F2','','F2','','C3','','C3','','G2','','G2',''],
+      lead:['A4','C5','E5','C5','F4','A4','C5','A4','C5','E5','G5','E5','G4','B4','D5','B4'],
+      drums:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1] } }
+];
 
 function isFree(id) { const s = SKINS.find(x => x.id === id); return !!(s && s.free); }
 function owns(id) { return isFree(id) || progress.owned.indexOf(id) !== -1; }
+function isFreeShip(id) { const s = SHIPS.find(x => x.id === id); return !!(s && s.free); }
+function ownsShip(id) { return isFreeShip(id) || progress.ownedShips.indexOf(id) !== -1; }
+function isFreeSong(id) { const s = SONGS.find(x => x.id === id); return !!(s && s.free); }
+function ownsSong(id) { return isFreeSong(id) || progress.ownedSongs.indexOf(id) !== -1; }
+function itemCost(it, cur) {
+  return cur === 'coins' ? (it.costCoins || ICON_COST_COINS) : (it.costStars || ICON_COST_STARS);
+}
 
 // ---- Persistent progression (single JSON blob; file:// safe) ----
 const DEFAULT_PROGRESS = {
-  best: { electro:0, water:0, demon:0 },
-  completed: { electro:false, water:false, demon:false },
+  best: { electro:0, water:0, toxic:0, demon:0, nothing:0 },
+  completed: { electro:false, water:false, toxic:false, demon:false, nothing:false },
   wallet: { coins: 0, stars: 0 },    // spendable balance
   owned: ['classic', 'rose'],        // owned icon ids
+  ownedShips: ['rocket'],            // owned ship ids
+  ownedSongs: ['default'],           // owned song ids
   demonUnlocked: false,              // latches true, so spending never re-locks it
-  skin: 'classic'                    // equipped icon
+  skin: 'classic',                   // equipped icon
+  ship: 'rocket',                    // equipped ship
+  song: 'default'                    // equipped soundtrack
 };
 let progress = structuredCloneSafe(DEFAULT_PROGRESS);
 
@@ -461,8 +607,8 @@ function loadProgress() {
     if (raw) {
       const p = JSON.parse(raw);
       progress = Object.assign(structuredCloneSafe(DEFAULT_PROGRESS), p);
-      progress.best = Object.assign({electro:0,water:0,demon:0}, p.best || {});
-      progress.completed = Object.assign({electro:false,water:false,demon:false}, p.completed || {});
+      progress.best = Object.assign({electro:0,water:0,toxic:0,demon:0,nothing:0}, p.best || {});
+      progress.completed = Object.assign({electro:false,water:false,toxic:false,demon:false,nothing:false}, p.completed || {});
       // migrate old saves (totalCoins/totalStars -> wallet)
       progress.wallet = Object.assign({coins:0, stars:0}, p.wallet ||
         { coins: p.totalCoins || 0, stars: p.totalStars || 0 });
@@ -474,8 +620,18 @@ function loadProgress() {
       }
       if (progress.owned.indexOf('classic') === -1) progress.owned.push('classic');
       if (progress.owned.indexOf('rose') === -1) progress.owned.push('rose');
-      // never leave an un-owned icon equipped
+      // ships
+      progress.ownedShips = Array.isArray(p.ownedShips) ? p.ownedShips.slice() : ['rocket'];
+      if (progress.ownedShips.indexOf('rocket') === -1) progress.ownedShips.push('rocket');
+      if (!progress.ship) progress.ship = 'rocket';
+      // songs
+      progress.ownedSongs = Array.isArray(p.ownedSongs) ? p.ownedSongs.slice() : ['default'];
+      if (progress.ownedSongs.indexOf('default') === -1) progress.ownedSongs.push('default');
+      if (!progress.song) progress.song = 'default';
+      // never leave an un-owned item equipped
       if (!owns(progress.skin)) progress.skin = 'classic';
+      if (!ownsShip(progress.ship)) progress.ship = 'rocket';
+      if (!ownsSong(progress.song)) progress.song = 'default';
     }
   } catch (e) { /* keep defaults */ }
 }
@@ -498,6 +654,7 @@ function demonUnlocked() { return checkDemonUnlock(); }
 let currentLevel = 'electro';   // set when a level is chosen
 let theme = LEVELS.electro;     // active theme, drives all drawing
 let currentSkin = SKINS.find(s => s.id === progress.skin) || SKINS[0];
+let currentShip = SHIPS.find(s => s.id === progress.ship) || SHIPS[0];
 let score = 0;
 let best = 0;
 let speed = 6;
@@ -565,7 +722,26 @@ function selectSkin(id) {
   refreshMenu();
 }
 
-// ---- Shop ----
+function selectShip(id) {
+  if (!ownsShip(id)) return;
+  currentShip = SHIPS.find(s => s.id === id) || SHIPS[0];
+  progress.ship = currentShip.id;
+  saveProgress();
+}
+function selectSong(id) {
+  if (!ownsSong(id)) return;
+  progress.song = id;
+  saveProgress();
+  if (state === 'playing') startMusic();   // swap the track live
+}
+
+// ---- Shop (Icons / Ships / Songs tabs) ----
+let shopTab = 'icons';
+function shopList() { return shopTab === 'ships' ? SHIPS : shopTab === 'songs' ? SONGS : SKINS; }
+function shopOwns(id) { return shopTab === 'ships' ? ownsShip(id) : shopTab === 'songs' ? ownsSong(id) : owns(id); }
+function shopEquipped(id) {
+  return shopTab === 'ships' ? currentShip.id === id : shopTab === 'songs' ? progress.song === id : currentSkin.id === id;
+}
 function openShop() {
   renderShop();
   document.getElementById('shopScreen').classList.remove('hidden');
@@ -573,52 +749,71 @@ function openShop() {
 function closeShop() {
   document.getElementById('shopScreen').classList.add('hidden');
 }
+function setShopTab(tab) {
+  shopTab = tab;
+  document.getElementById('tabIcons').classList.toggle('active', tab === 'icons');
+  document.getElementById('tabShips').classList.toggle('active', tab === 'ships');
+  document.getElementById('tabSongs').classList.toggle('active', tab === 'songs');
+  document.getElementById('shopMsg').textContent = '';
+  renderShop();
+}
 function renderShop() {
   refreshWallet();
   const grid = document.getElementById('shopGrid');
   grid.innerHTML = '';
-  SKINS.forEach(sk => {
-    const owned = owns(sk.id);
-    const equipped = currentSkin.id === sk.id;
+  const songs = shopTab === 'songs';
+  shopList().forEach(it => {
+    const owned = shopOwns(it.id);
+    const equipped = shopEquipped(it.id);
     const card = document.createElement('div');
     card.className = 'shop-item' + (equipped ? ' equipped' : '');
     let action;
     if (equipped) {
-      action = `<div class="shop-tag equipped-tag">✓ Equipped</div>`;
+      action = `<div class="shop-tag equipped-tag">✓ ${songs ? 'Playing' : 'Equipped'}</div>`;
     } else if (owned) {
-      action = `<button class="shop-buy equip" data-equip="${sk.id}">Equip</button>`;
+      action = `<button class="shop-buy equip" data-equip="${it.id}">${songs ? 'Play' : 'Equip'}</button>`;
     } else {
-      action = `<div class="shop-price">${ICON_COST_COINS}🪙 or ${ICON_COST_STARS}⭐</div>
+      action = `<div class="shop-price">${itemCost(it,'coins')}🪙 or ${itemCost(it,'stars')}⭐</div>
                 <div class="shop-buyrow">
-                  <button class="shop-buy" data-buy="${sk.id}" data-cur="coins">Buy 🪙</button>
-                  <button class="shop-buy" data-buy="${sk.id}" data-cur="stars">Buy ⭐</button>
+                  <button class="shop-buy" data-buy="${it.id}" data-cur="coins">Buy 🪙</button>
+                  <button class="shop-buy" data-buy="${it.id}" data-cur="stars">Buy ⭐</button>
                 </div>`;
     }
-    card.innerHTML =
-      `<div class="shop-swatch" style="background:linear-gradient(135deg, ${sk.colors[0]}, ${sk.colors[1]});clip-path:${SHAPE_CLIP[sk.shape] || 'none'}"></div>
-       <div class="shop-name">${sk.name}</div>${action}`;
+    let swatch;
+    if (shopTab === 'ships' || songs)
+      swatch = `<div class="shop-swatch ship-swatch" style="background:linear-gradient(135deg, ${it.colors[0]}, ${it.colors[1]})">${it.emoji}</div>`;
+    else
+      swatch = `<div class="shop-swatch" style="background:linear-gradient(135deg, ${it.colors[0]}, ${it.colors[1]});clip-path:${SHAPE_CLIP[it.shape] || 'none'}"></div>`;
+    card.innerHTML = `${swatch}<div class="shop-name">${it.name}</div>${action}`;
     grid.appendChild(card);
   });
   grid.querySelectorAll('[data-buy]').forEach(b =>
-    b.addEventListener('click', () => buySkin(b.dataset.buy, b.dataset.cur)));
+    b.addEventListener('click', () => buyItem(b.dataset.buy, b.dataset.cur)));
   grid.querySelectorAll('[data-equip]').forEach(b =>
-    b.addEventListener('click', () => { selectSkin(b.dataset.equip); renderShop(); }));
+    b.addEventListener('click', () => {
+      if (shopTab === 'ships') selectShip(b.dataset.equip);
+      else if (shopTab === 'songs') selectSong(b.dataset.equip);
+      else selectSkin(b.dataset.equip);
+      renderShop(); refreshMenu();
+    }));
 }
-function buySkin(id, cur) {
-  if (owns(id)) return;
+function buyItem(id, cur) {
+  if (shopOwns(id)) return;
+  const item = shopList().find(s => s.id === id);
+  const cost = itemCost(item, cur);
   const msg = document.getElementById('shopMsg');
   if (cur === 'coins') {
-    if (progress.wallet.coins < ICON_COST_COINS) { msg.textContent = `Need ${ICON_COST_COINS} 🪙 — collect more!`; return; }
-    progress.wallet.coins -= ICON_COST_COINS;
+    if (progress.wallet.coins < cost) { msg.textContent = `Need ${cost} 🪙 — collect more!`; return; }
+    progress.wallet.coins -= cost;
   } else {
-    if (progress.wallet.stars < ICON_COST_STARS) { msg.textContent = `Need ${ICON_COST_STARS} ⭐ — collect more!`; return; }
-    progress.wallet.stars -= ICON_COST_STARS;
+    if (progress.wallet.stars < cost) { msg.textContent = `Need ${cost} ⭐ — collect more!`; return; }
+    progress.wallet.stars -= cost;
   }
-  progress.owned.push(id);
-  progress.skin = id;                                  // auto-equip the new icon
-  currentSkin = SKINS.find(s => s.id === id) || currentSkin;
+  if (shopTab === 'ships') { progress.ownedShips.push(id); progress.ship = id; currentShip = item; }
+  else if (shopTab === 'songs') { progress.ownedSongs.push(id); progress.song = id; }
+  else { progress.owned.push(id); progress.skin = id; currentSkin = item; }
   saveProgress();
-  msg.textContent = `Bought ${SKINS.find(s=>s.id===id).name}! 🎉`;
+  msg.textContent = `Bought ${item.name}! 🎉`;
   renderShop();
   refreshMenu();
 }
@@ -632,13 +827,14 @@ const player = {
   onGround: true,
   jumps: 0,
   rot: 0,
-  mode: 'cube',   // 'cube' | 'ship'
+  mode: 'cube',       // 'cube' | 'ship'
+  gravityDir: 1,      // 1 = normal (floor), -1 = flipped (ceiling)
   trail: []
 };
 
 const GRAVITY = 0.9;
 const JUMP_V = -15;
-const MAX_JUMPS = 2;
+const MAX_JUMPS = 1;   // single jump only (no mid-air double jump)
 
 // ---- World objects ----
 let obstacles = [];
@@ -646,12 +842,16 @@ let particles = [];
 let stars = [];
 let spawnTimer = 0;
 let portalTimer = 0;
+let gravTimer = 0;
 let sectionMode = 'cube';   // which mode we're currently spawning for
+let sectionGravity = 1;      // gravity obstacles are being spawned for (1 floor / -1 ceiling)
 let holding = false;         // is jump/thrust being held?
 
 // boss fight state
 let bossActive = false;
 let bossProjectiles = [];
+let bossType = 'demon';
+let worldHidden = false;   // Blinky's nightmare: everything goes invisible on a cycle
 const boss = { x: 0, y: 0, baseY: 130, hp: 0, maxHp: BOSS_DURATION, t: 0, atkTimer: 0, pattern: 0, flash: 0, intro: 0 };
 
 // ============ AUDIO / MUSIC ENGINE (procedural chiptune) ============
@@ -717,7 +917,9 @@ function startMusic() {
   if (!actx) return;
   stopMusic();
   musicStep = 0;
-  const m = LEVELS[currentLevel].music;
+  // use the equipped shop soundtrack if any, else the level's own theme
+  const song = SONGS.find(s => s.id === progress.song);
+  const m = (song && song.track && ownsSong(song.id)) ? song.track : LEVELS[currentLevel].music;
   const stepDur = 60 / m.bpm / 4;        // 16th-note length (seconds)
   musicTimer = setInterval(() => {
     if (state !== 'playing') return;      // silence while paused/dead
@@ -760,8 +962,11 @@ function reset() {
   spawnTimer = 0;
   collectTimer = 40;
   portalTimer = 480;       // first portal well into the run
+  gravTimer = 300;         // first gravity flip
   sectionMode = 'cube';
+  sectionGravity = 1;
   bossActive = false;
+  worldHidden = false;
   bossProjectiles = [];
   player.y = GROUND_Y - player.size;
   player.vy = 0;
@@ -769,6 +974,7 @@ function reset() {
   player.jumps = 0;
   player.rot = 0;
   player.mode = 'cube';
+  player.gravityDir = 1;
   player.trail = [];
   document.getElementById('goal').textContent = GOAL;
   document.getElementById('coins').textContent = 0;
@@ -776,22 +982,24 @@ function reset() {
   document.getElementById('progressBar').style.width = '0%';
   document.getElementById('bossWrap').classList.add('hidden');
   document.getElementById('progressWrap').classList.remove('hidden');
+  document.getElementById('pauseBtn').textContent = '⏸';
 }
 
 // ---- Input ----
 function jump() {
   if (state !== 'playing') return;
   if (player.jumps < MAX_JUMPS) {
-    player.vy = JUMP_V;
+    player.vy = JUMP_V * player.gravityDir;   // jump away from the current surface
     player.onGround = false;
     player.jumps++;
-    // jump particles
+    // jump particles kick out from the surface the player launched off
+    const fromY = player.gravityDir === 1 ? player.y + player.size : player.y;
     for (let i = 0; i < 8; i++) {
       particles.push({
         x: player.x + player.size / 2,
-        y: player.y + player.size,
+        y: fromY,
         vx: (Math.random() - 0.5) * 4,
-        vy: Math.random() * 3 + 1,
+        vy: (Math.random() * 3 + 1) * player.gravityDir,
         life: 20, color: theme.trail, size: Math.random() * 3 + 1
       });
     }
@@ -822,8 +1030,15 @@ window.addEventListener('keyup', e => {
 canvas.addEventListener('mousedown', pressDown);
 window.addEventListener('mouseup', pressUp);
 window.addEventListener('touchstart', e => {
-  if (e.target.closest('.btn') || e.target.closest('.level-card') || e.target.closest('.skin')) return;
-  e.preventDefault(); pressDown();
+  // ignore taps on UI controls (buttons, cards, shop) so they work / scroll normally
+  if (e.target.closest('.btn, .level-card, .skin, .shop-item, .shop-tab, #pauseBtn, #muteBtn')) return;
+  if (state === 'playing') {
+    e.preventDefault();   // block scroll only while playing, so the tap = jump/thrust
+    pressDown();
+  } else if (state === 'dead' || state === 'won') {
+    pressDown();          // tap anywhere to restart
+  }
+  // on menu / shop / pause screens: do nothing, let the page scroll
 }, { passive: false });
 window.addEventListener('touchend', pressUp);
 
@@ -834,12 +1049,17 @@ document.querySelectorAll('.level-card').forEach(card => {
 document.getElementById('retryBtn').onclick = () => startGame(currentLevel);
 document.getElementById('levelsBtn').onclick = showLevelSelect;
 document.getElementById('resumeBtn').onclick = togglePause;
+document.getElementById('pauseMenuBtn').onclick = showLevelSelect;
 document.getElementById('nextBtn').onclick = () => startGame(currentLevel);
 document.getElementById('winLevelsBtn').onclick = showLevelSelect;
 document.getElementById('shopCloseBtn').onclick = closeShop;
+document.getElementById('tabIcons').onclick = () => setShopTab('icons');
+document.getElementById('tabShips').onclick = () => setShopTab('ships');
+document.getElementById('tabSongs').onclick = () => setShopTab('songs');
 const muteBtn = document.getElementById('muteBtn');
 muteBtn.textContent = muted ? '🔇' : '🔊';
 muteBtn.onclick = (e) => { e.stopPropagation(); initAudio(); toggleMute(); };
+document.getElementById('pauseBtn').onclick = (e) => { e.stopPropagation(); togglePause(); };
 
 function hideAllScreens() {
   document.getElementById('startScreen').classList.add('hidden');
@@ -881,10 +1101,12 @@ function togglePause() {
   if (state === 'playing') {
     state = 'paused';
     stopMusic();
+    document.getElementById('pauseBtn').textContent = '▶';
     document.getElementById('pauseScreen').classList.remove('hidden');
   } else if (state === 'paused') {
     state = 'playing';
     startMusic();
+    document.getElementById('pauseBtn').textContent = '⏸';
     document.getElementById('pauseScreen').classList.add('hidden');
   }
 }
@@ -893,6 +1115,7 @@ function die() {
   state = 'dead';
   stopMusic();
   bossActive = false;
+  worldHidden = false;
   document.getElementById('bossWrap').classList.add('hidden');
   // explosion
   for (let i = 0; i < 40; i++) {
@@ -919,7 +1142,7 @@ function die() {
   document.getElementById('finalScore').textContent = score;
   let note = score >= best && score > 0 ? '🏆 New best score!' : msgs[Math.floor(Math.random()*msgs.length)];
   if (coins || starsCollected) note += `  ·  banked 🪙${coins} ⭐${starsCollected}`;
-  if (!wasDemon && demonUnlocked()) note += '  ·  👿 DEMON unlocked!';
+  if (!wasDemon && demonUnlocked()) note += '  ·  👿 EVERYEND unlocked!';
   document.getElementById('deathMsg').textContent = note;
   document.getElementById('deathScreen').classList.remove('hidden');
 }
@@ -928,9 +1151,11 @@ function win(bossKill) {
   state = 'won';
   stopMusic();
   bossActive = false;
+  worldHidden = false;
   document.getElementById('bossWrap').classList.add('hidden');
-  document.getElementById('winTitle').textContent = bossKill ? '👿 BOSS DEFEATED!' : 'LEVEL COMPLETE!';
-  document.getElementById('winBig').textContent = bossKill ? '👿 You slayed the Demon Boss!' : '🏁 You reached the finish!';
+  const bcfg = BOSSES[bossType];
+  document.getElementById('winTitle').textContent = bossKill ? `${bcfg.emoji} BOSS DEFEATED!` : 'LEVEL COMPLETE!';
+  document.getElementById('winBig').textContent = bossKill ? `${bcfg.emoji} You ${bcfg.verb}!` : '🏁 You reached the finish!';
   // celebratory confetti burst
   for (let i = 0; i < 60; i++) {
     particles.push({
@@ -959,7 +1184,7 @@ function win(bossKill) {
     progress.owned.push(reward);
     unlocks.push('🎨 ' + SKINS.find(s => s.id === reward).name + ' icon');
   }
-  if (!wasDemon && checkDemonUnlock()) unlocks.push('👿 DEMON level');
+  if (!wasDemon && checkDemonUnlock()) unlocks.push('👿 EVERYEND level');
   saveProgress();
 
   document.getElementById('winStats').textContent =
@@ -971,18 +1196,24 @@ function win(bossKill) {
   document.getElementById('winScreen').classList.remove('hidden');
 }
 
-// ---- Boss fight (Demon finale) ----
-function startBoss() {
+// ---- Boss fights ----
+function startBoss(type) {
+  bossType = BOSSES[type] ? type : 'demon';
+  const cfg = BOSSES[bossType];
   bossActive = true;
   obstacles = [];
   collectibles = [];
   bossProjectiles = [];
   sectionMode = 'cube';
+  sectionGravity = 1;
   player.mode = 'cube';
-  player.y = GROUND_Y - player.size; player.vy = 0; player.jumps = 0;
+  player.gravityDir = 1;
+  player.y = GROUND_Y - player.size; player.vy = 0; player.jumps = 0; player.rot = 0;
   boss.x = W - 95; boss.baseY = 130; boss.y = 130;
-  boss.hp = boss.maxHp; boss.t = 0; boss.atkTimer = 0; boss.pattern = 0; boss.flash = 0;
-  boss.intro = 100;   // brief "BOSS FIGHT" warning before it attacks
+  boss.maxHp = cfg.duration; boss.hp = cfg.duration;
+  boss.t = 0; boss.atkTimer = 0; boss.pattern = 0; boss.flash = 0;
+  boss.intro = 100;   // brief warning before it attacks
+  document.querySelector('#bossWrap .boss-label').textContent = cfg.emoji + ' ' + cfg.name;
   document.getElementById('progressWrap').classList.add('hidden');
   document.getElementById('bossWrap').classList.remove('hidden');
 }
@@ -1006,6 +1237,13 @@ function updateBoss() {
   boss.t++;
   boss.y = boss.baseY + Math.sin(boss.t * 0.045) * 42;
   if (boss.flash > 0) boss.flash--;
+
+  // Blinky nightmare: 7s visible, then 5s pitch-black (dodge blind), repeating
+  if (bossType === 'blinky' && boss.intro <= 0) {
+    worldHidden = (boss.t % 720) >= 420;   // 60fps: 420=7s visible, 300=5s hidden
+  } else {
+    worldHidden = false;
+  }
 
   if (boss.intro > 0) {
     boss.intro--;
@@ -1035,6 +1273,14 @@ function updateBoss() {
 
 // ---- Spawning ----
 function spawnObstacle() {
+  // when gravity is flipped, obstacles hang from the ceiling (spikes only, for fairness)
+  if (sectionGravity === -1) {
+    const count = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+      obstacles.push({ kind: 'spike', x: W + i * 34, w: 34, h: 40, flip: true });
+    }
+    return;
+  }
   const type = Math.random();
   if (type < 0.62) {
     // spike(s) - 1 to 3 in a row
@@ -1047,7 +1293,7 @@ function spawnObstacle() {
     const h = 40 + Math.floor(Math.random() * 60);
     obstacles.push({ kind: 'block', x: W, w: 50, h: h });
   } else {
-    // floating block + spike under (must double jump)
+    // a pair of spikes — clear both with one well-timed jump
     obstacles.push({ kind: 'spike', x: W, w: 34, h: 40 });
     obstacles.push({ kind: 'spike', x: W + 34, w: 34, h: 40 });
   }
@@ -1111,7 +1357,8 @@ function update() {
     Math.min(100, (score / GOAL) * 100) + '%';
 
   // demon: a boss flies in near the end instead of a plain distance finish
-  if (currentLevel === 'demon' && !bossActive && score >= BOSS_SCORE) startBoss();
+  if (currentLevel === 'demon' && !bossActive && score >= BOSS_SCORE) startBoss('demon');
+  if (currentLevel === 'toxic' && !bossActive && score >= BLINKY_SCORE) startBoss('blinky');
 
   // reached the finish line -> level complete (boss levels finish by defeating the boss)
   if (!bossActive && score >= GOAL) { win(); return; }
@@ -1119,8 +1366,8 @@ function update() {
   // gradually speed up (capped so the finish stays fair)
   speed = baseSpeed + Math.min(frame, 900) / 900;
 
-  // no normal spawns during the final stretch or the boss fight
-  const spawning = score < GOAL - 8 && !bossActive;
+  // no normal spawns during the final stretch, the boss fight, or an "empty" level
+  const spawning = score < GOAL - 8 && !bossActive && !theme.empty;
 
   // player physics
   if (player.mode === 'ship') {
@@ -1143,16 +1390,27 @@ function update() {
       });
     }
   } else {
-    // cube: gravity + jumps
-    player.vy += GRAVITY;
+    // cube: gravity + jumps (gravityDir flips it to run on the ceiling)
+    const gd = player.gravityDir;
+    player.vy += GRAVITY * gd;
     player.y += player.vy;
-    player.rot += (player.onGround ? 0 : 0.18);
-    if (player.y + player.size >= GROUND_Y) {
-      player.y = GROUND_Y - player.size;
-      player.vy = 0;
+    player.rot += (player.onGround ? 0 : 0.18 * gd);
+    // BOTH boundaries are solid walls — you rest on the one gravity pulls you to,
+    // and the opposite one just blocks you (prevents sinking through after a flip).
+    const land = () => {
       if (!player.onGround) player.rot = Math.round(player.rot / (Math.PI/2)) * (Math.PI/2);
       player.onGround = true;
       player.jumps = 0;
+    };
+    if (player.y + player.size >= GROUND_Y) {      // hit the floor
+      player.y = GROUND_Y - player.size;
+      if (player.vy > 0) player.vy = 0;
+      if (gd === 1) land();
+    }
+    if (player.y <= CEIL_Y) {                       // hit the ceiling
+      player.y = CEIL_Y;
+      if (player.vy < 0) player.vy = 0;
+      if (gd === -1) land();
     }
   }
 
@@ -1164,9 +1422,20 @@ function update() {
   portalTimer--;
   if (spawning && portalTimer <= 0) {
     sectionMode = (sectionMode === 'cube') ? 'ship' : 'cube';
+    sectionGravity = 1;                    // reset gravity when the mode changes
     obstacles.push({ kind: 'portal', to: sectionMode, x: W + 40, w: 40, used: false });
     spawnTimer = 60;                       // brief breather right after a portal
     portalTimer = 360 + Math.random() * 200;
+    gravTimer = 220 + Math.random() * 160;
+  }
+
+  // gravity-flip portal — only during cube sections
+  gravTimer--;
+  if (spawning && sectionMode === 'cube' && gravTimer <= 0) {
+    sectionGravity = -sectionGravity;
+    obstacles.push({ kind: 'portal', to: 'flip', x: W + 40, w: 40, used: false });
+    spawnTimer = Math.max(spawnTimer, 55);   // small breather so you can react
+    gravTimer = 260 + Math.random() * 180;
   }
 
   // spawn obstacles (shape depends on the current section)
@@ -1195,18 +1464,23 @@ function update() {
     o.x -= speed;
     const ox = o.x, ow = o.w;
 
-    // portal: crossing it switches the player's mode
+    // portal: crossing it switches mode or flips gravity
     if (o.kind === 'portal') {
       if (!o.used && ox <= px + ps / 2) {
         o.used = true;
-        player.mode = o.to;
+        if (o.to === 'flip') {
+          player.gravityDir = -player.gravityDir;   // flip gravity, keep mode
+        } else {
+          player.mode = o.to;
+          player.gravityDir = 1;                     // mode change resets gravity
+        }
         player.vy = 0; player.rot = 0;
-        // portal flash
+        const col = o.to === 'ship' ? '#5adf9e' : o.to === 'flip' ? '#c86bff' : '#ffb300';
         for (let i = 0; i < 22; i++) {
           particles.push({
             x: px + ps / 2, y: py + ps / 2,
             vx: (Math.random() - 0.5) * 9, vy: (Math.random() - 0.5) * 9,
-            life: 30, color: o.to === 'ship' ? '#5adf9e' : '#ffb300', size: Math.random() * 4 + 2
+            life: 30, color: col, size: Math.random() * 4 + 2
           });
         }
       }
@@ -1230,8 +1504,11 @@ function update() {
       if (collide(px+pad, py+pad, ps-pad*2, ps-pad*2, ox, GROUND_Y - o.h, ow, o.h)) { die(); return; }
     }
     else if (o.kind === 'spike') {
-      const oy = GROUND_Y - o.h;
-      if (collide(px+pad, py+pad, ps-pad*2, ps-pad*2, ox+6, oy+10, ow-12, o.h-10)) { die(); return; }
+      // floor spike points up from GROUND_Y; ceiling spike points down from CEIL_Y
+      const box = o.flip
+        ? [ox+6, CEIL_Y, ow-12, o.h-10]
+        : [ox+6, GROUND_Y - o.h + 10, ow-12, o.h-10];
+      if (collide(px+pad, py+pad, ps-pad*2, ps-pad*2, box[0], box[1], box[2], box[3])) { die(); return; }
     }
     else if (o.kind === 'bar') {
       // ship gate — solid rectangle, touching = death
@@ -1385,6 +1662,14 @@ function drawGround() {
   ctx.shadowBlur = 0;
 }
 
+// Lighten (amt>0) or darken (amt<0) a #rrggbb color; returns an rgb() string.
+function shade(hex, amt) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substr(0, 2), 16), g = parseInt(h.substr(2, 2), 16), b = parseInt(h.substr(4, 2), 16);
+  const f = (c) => Math.max(0, Math.min(255, Math.round(amt >= 0 ? c + (255 - c) * amt : c * (1 + amt))));
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
+}
+
 // Build a centered path for the given icon shape with "radius" r.
 function traceShape(shape, r) {
   ctx.beginPath();
@@ -1412,100 +1697,159 @@ function drawPlayer() {
   const s = player.size, r = s / 2;
   const shape = currentSkin.shape || 'square';
 
-  // trail — faint copies of the icon in its own shape
+  const ship = player.mode === 'ship';
+  const trailColor = ship ? currentShip.colors[1] : currentSkin.colors[1];
+
+  // trail — faint copies behind the player
   for (let i = 0; i < player.trail.length; i++) {
     const t = player.trail[i];
     ctx.save();
     ctx.globalAlpha = (i / player.trail.length) * 0.32;
     ctx.translate(t.x + r, t.y + r);
     ctx.rotate(t.rot || 0);
-    ctx.fillStyle = currentSkin.colors[1];
-    traceShape(shape, r);
+    ctx.fillStyle = trailColor;
+    if (ship) ctx.fillRect(-r * 0.7, -r * 0.4, r * 1.4, r * 0.8);
+    else traceShape(shape, r);
     ctx.fill();
     ctx.restore();
   }
+
+  // 3D ground shadow beneath the player (depth cue)
+  const surfY = player.gravityDir === 1 ? GROUND_Y - 2 : CEIL_Y + s + 2;
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(player.x + r, surfY, r * 0.95, r * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 
   ctx.save();
   ctx.translate(player.x + r, player.y + r);
   ctx.rotate(player.rot);
 
-  // ship mode: nose cone + fin behind the shape so it reads as a rocket
-  if (player.mode === 'ship') {
-    ctx.fillStyle = currentSkin.glow;
-    ctx.beginPath();
-    ctx.moveTo(r, -r/2); ctx.lineTo(r + s/3, 0); ctx.lineTo(r, r/2);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(-r, r); ctx.lineTo(-r - s/4, r + s/5); ctx.lineTo(-r, r/3);
-    ctx.closePath(); ctx.fill();
+  if (ship) {
+    // draw the equipped ship
+    drawShip(currentShip, s);
+  } else {
+    // 3D extrude — a darker copy offset down-right fakes thickness
+    ctx.save();
+    ctx.translate(5, 6);
+    ctx.fillStyle = shade(currentSkin.colors[1], -0.45);
+    traceShape(shape, r);
+    ctx.fill();
+    ctx.restore();
+    // top face — the selected color gradient (lit from top-left)
+    ctx.shadowColor = currentSkin.glow;
+    ctx.shadowBlur = 18;
+    const g = ctx.createLinearGradient(-r, -r, r, r);
+    g.addColorStop(0, shade(currentSkin.colors[0], 0.25));
+    g.addColorStop(1, shade(currentSkin.colors[1], -0.12));
+    ctx.fillStyle = g;
+    traceShape(shape, r);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // white border
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+    traceShape(shape, r);
+    ctx.stroke();
+    // glossy highlight (upper-left)
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    traceShape(shape, r * 0.3);
+    ctx.fill();
   }
 
-  // body — the selected color gradient, in the icon's shape
-  ctx.shadowColor = currentSkin.glow;
-  ctx.shadowBlur = 20;
-  const g = ctx.createLinearGradient(-r, -r, r, r);
-  g.addColorStop(0, currentSkin.colors[0]);
-  g.addColorStop(1, currentSkin.colors[1]);
-  ctx.fillStyle = g;
-  traceShape(shape, r);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // white border
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 3;
-  ctx.lineJoin = 'round';
-  traceShape(shape, r);
-  ctx.stroke();
-
-  // inner detail — a smaller concentric copy of the shape
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  traceShape(shape, r * 0.34);
-  ctx.fill();
-
   ctx.restore();
+}
+
+// Draw the equipped ship (centered at origin, facing right).
+function drawShip(sh, s) {
+  const r = s / 2;
+  const g = ctx.createLinearGradient(-r, -r, r, r);
+  g.addColorStop(0, sh.colors[0]); g.addColorStop(1, sh.colors[1]);
+  ctx.fillStyle = g;
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  ctx.shadowColor = sh.glow; ctx.shadowBlur = 18;
+
+  if (sh.shape === 'rocket') {
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 0.95, r * 0.62, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.fillStyle = sh.glow;
+    ctx.beginPath(); ctx.moveTo(r * 0.6, -r * 0.42); ctx.lineTo(r * 1.25, 0); ctx.lineTo(r * 0.6, r * 0.42); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-r * 0.4, r * 0.35); ctx.lineTo(-r * 0.95, r * 0.95); ctx.lineTo(-r * 0.4, r * 0.1); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-r * 0.4, -r * 0.35); ctx.lineTo(-r * 0.95, -r * 0.95); ctx.lineTo(-r * 0.4, -r * 0.1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(r * 0.1, 0, r * 0.28, 0, Math.PI * 2); ctx.fill();
+  } else if (sh.shape === 'jet') {
+    ctx.beginPath(); ctx.moveTo(r * 1.15, 0); ctx.lineTo(-r * 0.55, -r * 0.42); ctx.lineTo(-r * 0.25, 0); ctx.lineTo(-r * 0.55, r * 0.42); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.fillStyle = sh.colors[1];
+    ctx.beginPath(); ctx.moveTo(-r * 0.05, -r * 0.1); ctx.lineTo(-r * 0.85, -r * 0.8); ctx.lineTo(-r * 0.5, -r * 0.02); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-r * 0.05, r * 0.1); ctx.lineTo(-r * 0.85, r * 0.8); ctx.lineTo(-r * 0.5, r * 0.02); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(r * 0.25, 0, r * 0.16, 0, Math.PI * 2); ctx.fill();
+  } else if (sh.shape === 'ufo') {
+    ctx.beginPath(); ctx.ellipse(0, r * 0.18, r * 1.15, r * 0.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.ellipse(0, r * 0.05, r * 0.5, r * 0.55, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = sh.glow;
+    for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.arc(i * r * 0.62, r * 0.32, r * 0.12, 0, Math.PI * 2); ctx.fill(); }
+  } else { // glider
+    ctx.beginPath(); ctx.moveTo(r * 1.05, 0); ctx.lineTo(-r * 0.7, -r * 0.85); ctx.lineTo(-r * 0.3, 0); ctx.lineTo(-r * 0.7, r * 0.85); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(0, 0, r * 0.22, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+}
+
+// A beveled/extruded 3D-looking block.
+function draw3DBlock(x, y, w, h) {
+  const bevel = Math.min(8, w * 0.22, h * 0.22);
+  ctx.shadowColor = theme.block; ctx.shadowBlur = 12;
+  const g = ctx.createLinearGradient(x, y, x, y + h);
+  g.addColorStop(0, shade(theme.block, 0.22));
+  g.addColorStop(1, shade(theme.block, -0.32));
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, w, h);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = shade(theme.block, 0.5);   // lit top face
+  ctx.fillRect(x, y, w, bevel);
+  ctx.fillStyle = shade(theme.block, 0.12);  // lit left face
+  ctx.fillRect(x, y, bevel, h);
+  ctx.fillStyle = shade(theme.block, -0.45); // shaded right + bottom
+  ctx.fillRect(x + w - bevel, y, bevel, h);
+  ctx.fillRect(x, y + h - bevel, w, bevel);
+  ctx.strokeStyle = theme.blockStroke; ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
 }
 
 function drawObstacles() {
   for (let o of obstacles) {
     if (o.kind === 'spike') {
-      const baseY = GROUND_Y;
-      ctx.fillStyle = theme.spike;
-      ctx.shadowColor = theme.spike;
-      ctx.shadowBlur = 12;
+      // floor spike points up from GROUND_Y; flipped spike points down from CEIL_Y
+      const baseY = o.flip ? CEIL_Y : GROUND_Y;
+      const tipY = o.flip ? CEIL_Y + o.h : GROUND_Y - o.h;
+      // 3D: dark right face first, then a lit left face
+      ctx.shadowColor = theme.spike; ctx.shadowBlur = 12;
+      ctx.fillStyle = shade(theme.spike, -0.35);
       ctx.beginPath();
-      ctx.moveTo(o.x, baseY);
-      ctx.lineTo(o.x + o.w/2, baseY - o.h);
-      ctx.lineTo(o.x + o.w, baseY);
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(o.x + o.w/2, baseY); ctx.lineTo(o.x + o.w/2, tipY); ctx.lineTo(o.x + o.w, baseY);
+      ctx.closePath(); ctx.fill();
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = theme.spikeStroke;
-      ctx.lineWidth = 1.5;
+      ctx.fillStyle = shade(theme.spike, 0.12);
+      ctx.beginPath();
+      ctx.moveTo(o.x, baseY); ctx.lineTo(o.x + o.w/2, tipY); ctx.lineTo(o.x + o.w/2, baseY);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = theme.spikeStroke; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(o.x, baseY); ctx.lineTo(o.x + o.w/2, tipY); ctx.lineTo(o.x + o.w, baseY);
       ctx.stroke();
     } else if (o.kind === 'block') {
-      const topY = GROUND_Y - o.h;
-      ctx.fillStyle = theme.block;
-      ctx.shadowColor = theme.block;
-      ctx.shadowBlur = 12;
-      ctx.fillRect(o.x, topY, o.w, o.h);
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = theme.blockStroke;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(o.x, topY, o.w, o.h);
+      draw3DBlock(o.x, GROUND_Y - o.h, o.w, o.h);
     } else if (o.kind === 'bar') {
-      // ship-gate bar (uses absolute y/h)
-      ctx.fillStyle = theme.block;
-      ctx.shadowColor = theme.block;
-      ctx.shadowBlur = 12;
-      ctx.fillRect(o.x, o.y, o.w, o.h);
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = theme.blockStroke;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(o.x, o.y, o.w, o.h);
+      draw3DBlock(o.x, o.y, o.w, o.h);   // ship-gate bar (absolute y/h)
     } else if (o.kind === 'portal') {
-      // glowing oval gate: green -> ship, orange -> cube
-      const col = o.to === 'ship' ? '#5adf9e' : '#ffb300';
+      // glowing oval gate: green -> ship, orange -> cube, purple -> gravity flip
+      const col = o.to === 'ship' ? '#5adf9e' : o.to === 'flip' ? '#c86bff' : '#ffb300';
       const cx = o.x + o.w / 2, cyc = (SHIP_TOP + GROUND_Y) / 2, rh = (GROUND_Y - SHIP_TOP) / 2;
       ctx.save();
       ctx.globalAlpha = 0.85;
@@ -1525,7 +1869,7 @@ function drawObstacles() {
       ctx.font = '22px Segoe UI';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(o.to === 'ship' ? '🚀' : '🟦', cx, cyc);
+      ctx.fillText(o.to === 'ship' ? '🚀' : o.to === 'flip' ? '🔃' : '🟦', cx, cyc);
     }
   }
 }
@@ -1597,37 +1941,16 @@ function drawBoss() {
   }
   if (!bossActive) return;
 
-  const R = 54;
   ctx.save();
   ctx.translate(boss.x, boss.y);
-  // head
-  ctx.shadowColor = '#ff3d3d'; ctx.shadowBlur = 26;
-  ctx.fillStyle = boss.flash > 0 ? '#ffffff' : '#8a0f1a';
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) { const a = -Math.PI/2 + i*Math.PI/3; const x=Math.cos(a)*R, y=Math.sin(a)*R; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
-  ctx.closePath(); ctx.fill();
-  ctx.shadowBlur = 0;
-  // horns
-  ctx.fillStyle = '#5a0810';
-  ctx.beginPath(); ctx.moveTo(-R*0.6,-R*0.45); ctx.lineTo(-R*0.95,-R*1.15); ctx.lineTo(-R*0.25,-R*0.6); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(R*0.6,-R*0.45); ctx.lineTo(R*0.95,-R*1.15); ctx.lineTo(R*0.25,-R*0.6); ctx.closePath(); ctx.fill();
-  // eyes
-  ctx.fillStyle = '#ffe14d'; ctx.shadowColor = '#ffd84d'; ctx.shadowBlur = 12;
-  ctx.beginPath(); ctx.arc(-18,-6,9,0,Math.PI*2); ctx.arc(18,-6,9,0,Math.PI*2); ctx.fill();
-  ctx.shadowBlur = 0; ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.arc(-16,-4,4,0,Math.PI*2); ctx.arc(20,-4,4,0,Math.PI*2); ctx.fill();
-  // jagged mouth
-  ctx.fillStyle = '#2a0206';
-  ctx.beginPath(); ctx.moveTo(-26,18);
-  for (let i = 0; i <= 6; i++) ctx.lineTo(-26 + i*9, 18 + ((i%2)?11:0));
-  ctx.lineTo(28,18); ctx.closePath(); ctx.fill();
+  if (bossType === 'blinky') drawBlinkyBody(); else drawDemonBody();
   ctx.restore();
 
   // intro warning banner
   if (boss.intro > 0) {
     ctx.save();
     ctx.globalAlpha = 0.55 + 0.45 * Math.abs(Math.sin(boss.t * 0.25));
-    ctx.fillStyle = '#ff3d3d';
+    ctx.fillStyle = bossType === 'blinky' ? '#ff5db1' : '#ff3d3d';
     ctx.font = 'bold 46px Segoe UI'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 22;
     ctx.fillText('⚠ BOSS FIGHT ⚠', W / 2, H / 2 - 40);
@@ -1635,16 +1958,93 @@ function drawBoss() {
   }
 }
 
+function drawDemonBody() {
+  const R = 54;
+  ctx.shadowColor = '#ff3d3d'; ctx.shadowBlur = 26;
+  ctx.fillStyle = boss.flash > 0 ? '#ffffff' : '#8a0f1a';
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) { const a = -Math.PI/2 + i*Math.PI/3; const x=Math.cos(a)*R, y=Math.sin(a)*R; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+  ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#5a0810';
+  ctx.beginPath(); ctx.moveTo(-R*0.6,-R*0.45); ctx.lineTo(-R*0.95,-R*1.15); ctx.lineTo(-R*0.25,-R*0.6); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(R*0.6,-R*0.45); ctx.lineTo(R*0.95,-R*1.15); ctx.lineTo(R*0.25,-R*0.6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ffe14d'; ctx.shadowColor = '#ffd84d'; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.arc(-18,-6,9,0,Math.PI*2); ctx.arc(18,-6,9,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0; ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(-16,-4,4,0,Math.PI*2); ctx.arc(20,-4,4,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#2a0206';
+  ctx.beginPath(); ctx.moveTo(-26,18);
+  for (let i = 0; i <= 6; i++) ctx.lineTo(-26 + i*9, 18 + ((i%2)?11:0));
+  ctx.lineTo(28,18); ctx.closePath(); ctx.fill();
+}
+
+// Blinky — the red Pac-Man ghost. Flickers ("blinks") and stares at the player.
+function drawBlinkyBody() {
+  const R = 48;
+  // blink flicker (dims briefly on a cycle), overridden bright when just hit
+  const blink = Math.sin(boss.t * 0.14);
+  ctx.globalAlpha = boss.flash > 0 ? 1 : (blink < -0.8 ? 0.28 : 1);
+  ctx.shadowColor = '#ff2d55'; ctx.shadowBlur = 26;
+  ctx.fillStyle = boss.flash > 0 ? '#ffffff' : '#ff2d2d';
+  // body: domed top + wavy skirt
+  ctx.beginPath();
+  ctx.arc(0, -R * 0.1, R, Math.PI, 0);          // dome
+  ctx.lineTo(R, R * 0.75);
+  const n = 4, step = (2 * R) / n;
+  for (let i = 0; i < n; i++) {
+    const x = R - i * step;
+    ctx.lineTo(x - step / 2, R * 0.5);
+    ctx.lineTo(x - step, R * 0.75);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  // eyes (whites) — biased left, toward the player
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.ellipse(-R * 0.32, -R * 0.18, R * 0.26, R * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(R * 0.28, -R * 0.18, R * 0.26, R * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+  // pupils looking left
+  ctx.fillStyle = '#1a3aff';
+  ctx.beginPath(); ctx.arc(-R * 0.42, -R * 0.12, R * 0.13, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(R * 0.18, -R * 0.12, R * 0.13, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
 function loop() {
   update();
   drawBackground();
-  drawObstacles();
-  drawCollectibles();
-  drawGround();
-  drawBoss();
-  if (state !== 'dead') drawPlayer();
+  if (worldHidden) {
+    // nightmare: everything vanishes — only Blinky's glowing eyes remain
+    drawDarkness();
+  } else {
+    drawObstacles();
+    drawCollectibles();
+    drawGround();
+    drawBoss();
+    if (state !== 'dead') drawPlayer();
+  }
   drawParticles();
   requestAnimationFrame(loop);
+}
+
+function drawDarkness() {
+  ctx.save();
+  ctx.fillStyle = 'rgba(2,0,10,0.95)';
+  ctx.fillRect(0, 0, W, H);
+  // Blinky's two glowing eyes floating in the black
+  ctx.shadowColor = '#ff2d55'; ctx.shadowBlur = 30;
+  ctx.fillStyle = '#ff5db1';
+  ctx.beginPath(); ctx.arc(boss.x - 15, boss.y - 6, 10, 0, Math.PI * 2);
+  ctx.arc(boss.x + 21, boss.y - 6, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0; ctx.fillStyle = '#1a3aff';
+  ctx.beginPath(); ctx.arc(boss.x - 19, boss.y - 3, 4.5, 0, Math.PI * 2);
+  ctx.arc(boss.x + 17, boss.y - 3, 4.5, 0, Math.PI * 2); ctx.fill();
+  // taunt
+  ctx.globalAlpha = 0.6 + 0.4 * Math.abs(Math.sin(boss.t * 0.2));
+  ctx.fillStyle = '#ff5db1';
+  ctx.font = 'bold 24px Segoe UI'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText("👻 you can't see...", W / 2, 70);
+  ctx.restore();
 }
 loop();
 
